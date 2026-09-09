@@ -1,7 +1,9 @@
-# ATLAS — Fase 48 · Hotfix de arranque GitHub Pages
+# ATLAS — Fase 49 · Corrección exacta de arranque
 
-Corrige el error de sintaxis detectado en el navegador al abrir ATLAS publicado en GitHub Pages.
+Corrige el error real detectado por Chrome en `app.js:883`:
+mezcla inválida de `??` con `||` sin paréntesis.
 
-Además, la pantalla de acceso en modo Supabase muestra correctamente “Contraseña” en vez de “PIN”.
+También elimina el 404 innecesario de `favicon.ico`.
 
-Después de copiar esta versión al repositorio, hacer Commit + Push y recargar GitHub Pages con Ctrl+F5.
+Después de copiar esta versión al repositorio:
+Commit → Push origin → esperar GitHub Pages → Ctrl+Shift+R.

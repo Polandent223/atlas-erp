@@ -880,16 +880,16 @@ function reportMetrics(from,to){
  const expenses=(s.expenses||[]).filter(x=>x.status!=="Anulada"&&inRange(x.date,from,to));
  const saleReturns=(s.returns||[]).filter(x=>x.status!=="Anulada"&&inRange(x.date,from,to));
  const purchaseReturns=(s.purchaseReturns||[]).filter(x=>x.status!=="Anulada"&&inRange(x.date,from,to));
- const salesGross=sales.reduce((a,x)=>a+Number(x.baseTotalUSD??x.total||0),0);
+ const salesGross=sales.reduce((a,x)=>a+Number((x.baseTotalUSD ?? x.total ?? 0)),0);
  const returnsSales=saleReturns.reduce((a,x)=>a+Number(x.amount||0),0);
  const netSales=safeMoney(salesGross-returnsSales);
- const purchasesGross=purchases.reduce((a,x)=>a+Number(x.baseTotalUSD??x.total||0),0);
+ const purchasesGross=purchases.reduce((a,x)=>a+Number((x.baseTotalUSD ?? x.total ?? 0)),0);
  const returnsPurchases=purchaseReturns.reduce((a,x)=>a+Number(x.amount||0),0);
  const netPurchases=safeMoney(purchasesGross-returnsPurchases);
  const expenseTotal=expenses.reduce((a,x)=>a+Number(x.amount||0),0);
  let cogs=0;
  for(const sale of sales){
-  for(const item of sale.items||[])cogs+=Number(item.cost??s.products.find(p=>p.id===item.productId)?.cost||0)*Number(item.qty||0);
+  for(const item of sale.items||[])cogs+=Number((item.cost ?? s.products.find(p=>p.id===item.productId)?.cost ?? 0))*Number(item.qty||0);
  }
  for(const ret of saleReturns)cogs-=Number(ret.cost||0);
  cogs=safeMoney(Math.max(0,cogs));
@@ -908,7 +908,7 @@ function groupedSalesByBranch(rows){
  const s=state(),map=new Map();
  for(const x of rows){
   const name=s.branches.find(b=>b.id===x.branchId)?.name||"Sin sucursal";
-  map.set(name,(map.get(name)||0)+Number(x.baseTotalUSD??x.total||0));
+  map.set(name,(map.get(name)||0)+Number((x.baseTotalUSD ?? x.total ?? 0)));
  }
  return [...map.entries()].sort((a,b)=>b[1]-a[1]);
 }
@@ -1863,7 +1863,7 @@ function voidSale(id){
     let inv=s.inventory.find(i=>i.productId===item.productId&&i.branchId===sale.branchId);
     if(!inv){inv={id:DB.id("i"),productId:item.productId,branchId:sale.branchId,stock:0,reserved:0};s.inventory.push(inv)}
     inv.stock+=Number(item.qty||0);
-    const cost=Number(item.cost??s.products.find(p=>p.id===item.productId)?.cost||0)*Number(item.qty||0);
+    const cost=Number((item.cost ?? s.products.find(p=>p.id===item.productId)?.cost ?? 0))*Number(item.qty||0);
     totalCost+=cost;
     s.movements.unshift({id:DB.id("m"),date:new Date().toISOString(),type:"ANULACIÓN VENTA",productId:item.productId,branchId:sale.branchId,qty:Number(item.qty||0),note:sale.number});
    }
