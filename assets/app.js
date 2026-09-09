@@ -479,7 +479,9 @@ function mountingStatusPage(){
 }
 
 function dashboard(){
- const s=state(),range=defaultReportRange(),m=reportMetrics(range.from,range.to),audit=runIntegrityAudit();
+ const s=state(),range=defaultReportRange(),m=reportMetrics(range.from,range.to);
+ const auditIssues=runIntegrityAudit();
+ const audit=Array.isArray(auditIssues)?auditIssues:[];
  const low=(s.inventory||[]).filter(i=>Number(i.stock||0)<=Number(s.settings.reporting?.lowStockThreshold||5));
  const overdue=agedReceivables().filter(r=>r.days>Number(s.settings.reporting?.staleReceivableDays||30));
  const cashDiff=(s.cashClosings||[]).filter(c=>c.status==="Con diferencia");
@@ -493,7 +495,7 @@ function dashboard(){
   <div class="kpi-card"><div class="kpi-icon">▦</div><div><span>Inventario valorizado</span><strong>USD ${money(m.inventoryValue)}</strong><small>${low.length} con stock bajo</small></div></div>
   <div class="kpi-card"><div class="kpi-icon">◷</div><div><span>Cuentas por cobrar</span><strong>USD ${money(m.ar)}</strong><small>${overdue.length} vencidas</small></div></div>
   <div class="kpi-card"><div class="kpi-icon">⇩</div><div><span>Cuentas por pagar</span><strong>USD ${money(m.ap)}</strong><small>Saldo actual</small></div></div>
-  <div class="kpi-card"><div class="kpi-icon">✓</div><div><span>Integridad</span><strong>${audit.issues.length?"Revisar":"Correcta"}</strong><small>${audit.issues.length} incidencia(s)</small></div></div>
+  <div class="kpi-card"><div class="kpi-icon">✓</div><div><span>Integridad</span><strong>${audit.length?"Revisar":"Correcta"}</strong><small>${audit.length} incidencia(s)</small></div></div>
  </div>
  <div class="dashboard-grid">
   <div class="dash-panel wide"><div class="panel-head"><div><h3>Resumen del período</h3><p>Mes actual</p></div><button class="btn btn-soft" data-nav="reports">Ver reporte</button></div><div class="metric-strip"><div><span>Ventas brutas</span><strong>USD ${money(m.salesGross)}</strong></div><div><span>Devoluciones</span><strong>USD ${money(m.returnsSales)}</strong></div><div><span>Ventas netas</span><strong>USD ${money(m.netSales)}</strong></div><div><span>Utilidad bruta</span><strong>USD ${money(m.grossProfit)}</strong></div></div></div>
@@ -502,8 +504,8 @@ function dashboard(){
  </div>
  <div class="quick-section"><div class="section-heading"><div><h3>Acciones rápidas</h3><p>Lo más usado, siempre a mano.</p></div></div><div class="quick-grid">${quick.map(([label,page,icon])=>`<button class="quick-action" data-nav="${page}"><span>${icon}</span><b>${label}</b></button>`).join("")}</div></div>
  <div class="dashboard-grid bottom-grid">
-  <div class="dash-panel wide"><div class="panel-head"><div><h3>Últimas ventas</h3><p>Actividad reciente</p></div><button class="btn btn-soft" data-nav="sales">Ver ventas</button></div>${recent.length?table(["N°","Fecha","Cliente","Total","Estado"],recent.map(v=>[esc(v.number),datefmt(v.date),esc(s.customers.find(c=>c.id===v.customerId)?.name||"Consumidor final"),moneyWithCurrency(v.documentTotal??v.total,v.currency||"USD"),`<span class="badge ${v.status==="Anulada"?"warn":"ok"}">${esc(v.status)}</span>`])):'<div class="empty-state">No hay ventas registradas.</div>'}</div>
-  <div class="dash-panel alerts-panel"><div class="panel-head"><div><h3>Alertas y notificaciones</h3><p>Solo lo importante</p></div></div><div class="alert-stack">${low.length?`<button data-nav="inventory"><span>Stock bajo</span><b>${low.length}</b></button>`:""}${overdue.length?`<button data-nav="receivables"><span>CxC vencidas</span><b>${overdue.length}</b></button>`:""}${cashDiff.length?`<button data-nav="cash"><span>Diferencias de caja</span><b>${cashDiff.length}</b></button>`:""}${audit.issues.length?`<button data-nav="system"><span>Integridad</span><b>${audit.issues.length}</b></button>`:""}${!low.length&&!overdue.length&&!cashDiff.length&&!audit.issues.length?'<div class="empty-state">Sin alertas críticas.</div>':""}</div></div>
+  <div class="dash-panel wide"><div class="panel-head"><div><h3>Últimas ventas</h3><p>Actividad reciente</p></div><button class="btn btn-soft" data-nav="sales">Ver ventas</button></div>${recent.length?table(["N°","Fecha","Cliente","Total","Estado"],recent.map(v=>[esc(v.number),datefmt(v.date),esc((s.customers||[]).find(c=>c.id===v.customerId)?.name||"Consumidor final"),moneyWithCurrency(v.documentTotal??v.total,v.currency||"USD"),`<span class="badge ${v.status==="Anulada"?"warn":"ok"}">${esc(v.status)}</span>`])):'<div class="empty-state">No hay ventas registradas.</div>'}</div>
+  <div class="dash-panel alerts-panel"><div class="panel-head"><div><h3>Alertas y notificaciones</h3><p>Solo lo importante</p></div></div><div class="alert-stack">${low.length?`<button data-nav="inventory"><span>Stock bajo</span><b>${low.length}</b></button>`:""}${overdue.length?`<button data-nav="receivables"><span>CxC vencidas</span><b>${overdue.length}</b></button>`:""}${cashDiff.length?`<button data-nav="cash"><span>Diferencias de caja</span><b>${cashDiff.length}</b></button>`:""}${audit.length?`<button data-nav="system"><span>Integridad</span><b>${audit.length}</b></button>`:""}${!low.length&&!overdue.length&&!cashDiff.length&&!audit.length?'<div class="empty-state">Sin alertas críticas.</div>':""}</div></div>
  </div></div>`;
 }
 function company(){
