@@ -207,7 +207,7 @@ function hardenState(s){
    expensePrefix:fc.expensePrefix||"G",returnPrefix:fc.returnPrefix||"DV",purchaseReturnPrefix:fc.purchaseReturnPrefix||"DC",
    stockTransferPrefix:fc.stockTransferPrefix||"TR",cashTransferPrefix:fc.cashTransferPrefix||"TF",cashClosingPrefix:fc.cashClosingPrefix||"CJ"
   });
-  s.schemaVersion=47;
+  s.schemaVersion=48;
   return s;
 }
 
@@ -302,7 +302,7 @@ export const DB = {
     return state.branches.filter(b=>this.canBranch(b.id));
   },
   exportBackup(){
-    return JSON.stringify({version:47,exportedAt:now(),data:state},null,2);
+    return JSON.stringify({version:48,exportedAt:now(),data:state},null,2);
   },
   importBackup(payload){
     const parsed=typeof payload==="string"?JSON.parse(payload):payload;

@@ -1,4 +1,7 @@
-# ATLAS — Fase 47 · Supabase real configurado
-Esta compilación ya apunta al proyecto real `atlas-erp` usando Project URL + Publishable Key pública.
-Antes de publicar, ejecutar una sola vez `sql/ATLAS_CONNECTION_PATCH_PHASE47.sql`.
-No contiene Secret Key ni service_role.
+# ATLAS — Fase 48 · Hotfix de arranque GitHub Pages
+
+Corrige el error de sintaxis detectado en el navegador al abrir ATLAS publicado en GitHub Pages.
+
+Además, la pantalla de acceso en modo Supabase muestra correctamente “Contraseña” en vez de “PIN”.
+
+Después de copiar esta versión al repositorio, hacer Commit + Push y recargar GitHub Pages con Ctrl+F5.

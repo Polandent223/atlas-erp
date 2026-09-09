@@ -65,7 +65,17 @@ function moduleAllowed(key){
 }
 
 function visibleNavGroups(){
- return navGroups.map(([group,items])=>[group,items.filter(([key])=>moduleAllowed(key))]).filter(([,items])=>items.length);
+ const groups=[];
+ for(const entry of navGroups){
+  const group=entry[0];
+  const items=entry[1];
+  const visible=[];
+  for(const item of items){
+   if(moduleAllowed(item[0])) visible.push(item);
+  }
+  if(visible.length) groups.push([group,visible]);
+ }
+ return groups;
 }
 
 function field(label,name,value,type="text",extra=""){return `<div class="field"><label>${label}</label><input name="${name}" type="${type}" value="${esc(value)}" ${extra}></div>`}
@@ -77,7 +87,7 @@ function loginView(){
    <div class="logo-lockup"><div class="logo-mark">A</div><div><div class="logo-title">ATLAS</div><div class="logo-sub">Sistema de Gestión Empresarial</div></div></div>
    <form id="loginForm">
     <div class="field"><label>Correo</label><input name="email" type="email" value="admin@atlas.local" required></div>
-    <div class="field"><label>PIN</label><input name="pin" type="password" value="1234" required></div>
+    <div class="field"><label>${isSupabaseConfigured()?"Contraseña":"PIN"}</label><input name="pin" type="password" value="${isSupabaseConfigured()?"":"1234"}" required></div>
     <button class="btn btn-primary btn-block">Entrar</button>
    </form>
    <div class="hintbox">${isSupabaseConfigured()?'<strong>Modo Supabase activo.</strong><br>Usa tu correo y contraseña de ATLAS.':'<strong>Modo local.</strong><br>Administrador demo: admin@atlas.local · PIN 1234'}</div>
