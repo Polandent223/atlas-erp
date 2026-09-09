@@ -1,0 +1,13 @@
+const store=new Map();
+Object.defineProperty(globalThis,'localStorage',{value:{getItem:k=>store.has(k)?store.get(k):null,setItem:(k,v)=>store.set(k,String(v)),removeItem:k=>store.delete(k),clear:()=>store.clear()},configurable:true});
+const appEl={innerHTML:'',classList:{toggle(){}},addEventListener(){},remove(){},dataset:{},style:{}};
+const dummy=()=>({innerHTML:'',value:'',checked:false,dataset:{},style:{},classList:{toggle(){}},onclick:null,onchange:null,onsubmit:null,oninput:null,addEventListener(){},remove(){},appendChild(){},click(){},files:[]});
+Object.defineProperty(globalThis,'document',{value:{getElementById(id){return id==='app'?appEl:null},querySelector(){return null},querySelectorAll(){return []},addEventListener(){},createElement(){return dummy()},body:{appendChild(){}}},configurable:true});
+globalThis.window=globalThis;globalThis.addEventListener=()=>{};
+Object.defineProperty(globalThis,'navigator',{value:{serviceWorker:{register:async()=>{}}},configurable:true});
+globalThis.alert=()=>{};globalThis.confirm=()=>true;globalThis.performance={now:()=>0};
+globalThis.FormData=class{constructor(){} get(){return null}};globalThis.FileReader=class{};globalThis.open=()=>dummy();globalThis.setInterval=()=>({unref(){}});
+await import('../assets/app.js');
+if(!appEl.innerHTML.includes('ATLAS')) throw new Error('ATLAS no renderizó');
+if(!appEl.innerHTML.includes('Contraseña')) throw new Error('No renderizó login Supabase');
+console.log('ATLAS Fase51 runtime OK');

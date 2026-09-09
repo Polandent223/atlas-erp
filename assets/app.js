@@ -1347,10 +1347,19 @@ async function completeSale(){
  if(condition==="cash"){requireSelection(accountId,"una cuenta de cobro");if(activePaymentMethods().length)requireSelection(paymentMethodId,"un método de pago");ensureActive(activeCashAccounts().find(a=>a.id===accountId),"Cuenta financiera");}
  if(isSupabaseConfigured()){
    try{
+     const totals=cartTotals();
      const result=await RemoteRepo.createSale({
-       p_branch_id:branchId,p_customer_id:customerId,p_payment_condition:condition,
-       p_cash_account_id:condition==="cash"?accountId:null,
-       p_items:cart.map(i=>({product_id:i.productId,qty:Number(i.qty)}))
+       p_branch:branchId,
+       p_customer:customerId,
+       p_currency:documentCurrency,
+       p_exchange_rate:Number(DB.rate(documentCurrency)?.rate||1),
+       p_subtotal:totals.subtotal,
+       p_tax:totals.tax,
+       p_total:totals.total,
+       p_paid:condition==="cash"?totals.total:0,
+       p_cash_account:condition==="cash"?accountId:null,
+       p_items:cart.map(i=>({product_id:i.productId,qty:Number(i.qty),unit_price:Number(i.price||0)})),
+       p_prefix:docPrefix("sale","V-")
      });
      cart=[];DB.setSyncStatus("syncing");await pullCoreWorkspace(state());await pullTransactions(state());await pullAccounting(state());DB.setSyncStatus("synced");
      DB.log(`Venta remota ${result.number} completada`,"CREATE","sale");
@@ -1410,7 +1419,19 @@ function newPurchase(){
    ensureActive(s.suppliers.find(x=>x.id===supplierId),"Proveedor");ensureActive(s.branches.find(x=>x.id===branchId),"Sucursal");ensureActive(product,"Producto");
    if(condition==="cash"){requireSelection(accountId,"una cuenta para pago");if(activePaymentMethods().length)requireSelection(paymentMethodId,"un método de pago");ensureActive(activeCashAccounts().find(a=>a.id===accountId),"Cuenta financiera");}
    if(isSupabaseConfigured()){
-     const result=await RemoteRepo.createPurchase({p_branch_id:branchId,p_supplier_id:supplierId,p_payment_condition:condition,p_cash_account_id:condition==="cash"?accountId:null,p_product_id:productId,p_qty:qty,p_cost:cost});
+     const result=await RemoteRepo.createPurchase({
+     p_branch:branchId,
+     p_supplier:supplierId,
+     p_currency:documentCurrency,
+     p_exchange_rate:Number(DB.rate(documentCurrency)?.rate||1),
+     p_subtotal:subtotal,
+     p_tax:tax,
+     p_total:total,
+     p_paid:condition==="cash"?total:0,
+     p_cash_account:condition==="cash"?accountId:null,
+     p_items:[{product_id:productId,qty,unit_cost:cost}],
+     p_prefix:docPrefix("purchase","C-")
+   });
      await pullCoreWorkspace(state());await pullTransactions(state());await pullAccounting(state());DB.setSyncStatus("synced");
      DB.log(`Compra remota ${result.number} completada`,"CREATE","purchase");return;
    }
@@ -1571,7 +1592,7 @@ function voidPurchase(id){
  `,f=>{
   const reason=requiredText(f.get("reason"),"Motivo");
   return localAtomic("Anulación de compra",()=>{
-   const total=Number(purchase.baseTotalUSD??purchase.total||0);
+   const total=Number((purchase.baseTotalUSD ?? purchase.total ?? 0));
    const subtotal=Number(purchase.subtotal||0),tax=Number(purchase.tax||0);
    for(const item of purchase.items||[]){
     const inv=s.inventory.find(i=>i.productId===item.productId&&i.branchId===purchase.branchId);
@@ -1758,7 +1779,7 @@ function payReceivable(id){
  const s=state(),r=s.receivables.find(x=>x.id===id);if(!r)return;
  modal("Registrar cobro",`<div class="notice">Saldo a aplicar en USD. ATLAS convierte automáticamente al tipo de moneda de la cuenta seleccionada.</div>${field("Monto a aplicar (USD)","amount",r.balance,"number",'step="0.01" min="0.01"')}<div class="field"><label>Método de pago</label><select name="paymentMethodId">${activePaymentMethods().map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join("")}</select></div><div class="field"><label>Cuenta destino</label><select name="accountId">${activeCashAccounts().map(a=>`<option value="${a.id}">${esc(a.name)} (${esc(a.currency)})</option>`).join("")}</select></div>`,async f=>{
   const requested=requirePositiveNumber(f.get("amount"),"Monto");const amt=Math.min(requested,Number(r.balance||0));if(amt<=0)throw new Error("La cuenta ya no tiene saldo pendiente.");requireSelection(f.get("accountId"),"una cuenta destino");
-  if(isSupabaseConfigured()){await RemoteRepo.collectReceivable({p_receivable_id:id,p_amount:amt,p_cash_account_id:f.get("accountId")});await pullTransactions(state());await pullAccounting(state());DB.setSyncStatus("synced");DB.log(`Cobro remoto registrado: ${r.reference}`,"CREATE","receivable_payment");return;}
+  if(isSupabaseConfigured()){await RemoteRepo.collectReceivable({p_receivable:id,p_amount:amt,p_cash_account:f.get("accountId")});await pullTransactions(state());await pullAccounting(state());DB.setSyncStatus("synced");DB.log(`Cobro remoto registrado: ${r.reference}`,"CREATE","receivable_payment");return;}
   return localAtomic("Cobro",()=>{
   r.balance-=amt;r.status=r.balance<=0?"Pagada":"Parcial";const c=s.customers.find(c=>c.id===r.customerId);if(c)c.balance=Math.max(0,Number(c.balance||0)-amt);
   const payment=convertedPayment(amt,f.get("accountId"));
@@ -1773,7 +1794,7 @@ function payPayable(id){
  const s=state(),r=s.payables.find(x=>x.id===id);if(!r)return;
  modal("Registrar pago",`<div class="notice">Saldo a aplicar en USD. ATLAS convierte automáticamente al tipo de moneda de la cuenta seleccionada.</div>${field("Monto a aplicar (USD)","amount",r.balance,"number",'step="0.01" min="0.01"')}<div class="field"><label>Método de pago</label><select name="paymentMethodId">${activePaymentMethods().map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join("")}</select></div><div class="field"><label>Cuenta origen</label><select name="accountId">${activeCashAccounts().map(a=>`<option value="${a.id}">${esc(a.name)} (${esc(a.currency)})</option>`).join("")}</select></div>`,async f=>{
   const requested=requirePositiveNumber(f.get("amount"),"Monto");const amt=Math.min(requested,Number(r.balance||0));if(amt<=0)throw new Error("La cuenta ya no tiene saldo pendiente.");requireSelection(f.get("accountId"),"una cuenta origen");
-  if(isSupabaseConfigured()){await RemoteRepo.payPayable({p_payable_id:id,p_amount:amt,p_cash_account_id:f.get("accountId")});await pullTransactions(state());await pullAccounting(state());DB.setSyncStatus("synced");DB.log(`Pago remoto registrado: ${r.reference}`,"CREATE","payable_payment");return;}
+  if(isSupabaseConfigured()){await RemoteRepo.payPayable({p_payable:id,p_amount:amt,p_cash_account:f.get("accountId")});await pullTransactions(state());await pullAccounting(state());DB.setSyncStatus("synced");DB.log(`Pago remoto registrado: ${r.reference}`,"CREATE","payable_payment");return;}
   return localAtomic("Pago",()=>{
   r.balance-=amt;r.status=r.balance<=0?"Pagada":"Parcial";const p=s.suppliers.find(p=>p.id===r.supplierId);if(p)p.balance=Math.max(0,Number(p.balance||0)-amt);
   const payment=convertedPayment(amt,f.get("accountId"));
@@ -1856,7 +1877,7 @@ function voidSale(id){
  `,f=>{
   const reason=requiredText(f.get("reason"),"Motivo");
   return localAtomic("Anulación de venta",()=>{
-   const amount=Number(sale.baseTotalUSD??sale.total||0);
+   const amount=Number((sale.baseTotalUSD ?? sale.total ?? 0));
    const subtotal=Number(sale.subtotal??(sale.items||[]).reduce((a,i)=>a+Number(i.price||0)*Number(i.qty||0),0)),tax=Number(sale.tax??Math.max(0,amount-subtotal));
    let totalCost=0;
    for(const item of sale.items||[]){
@@ -1919,7 +1940,7 @@ function newReturn(){
   const sold=sale.items.find(i=>i.productId===productId);if(!sold)throw new Error("Ese producto no pertenece a la venta");
   const already=s.returns.filter(r=>r.saleId===sale.id&&r.productId===productId).reduce((a,r)=>a+r.qty,0);
   if(already+qty>sold.qty)throw new Error("La cantidad devuelta supera la vendida");
-  const net=qty*Number(sold.price),taxReturn=net*Number(sold.tax||0)/100,amount=net+taxReturn,costReturn=qty*Number(sold.cost??s.products.find(p=>p.id===productId)?.cost||0),number=nextConfiguredDoc("return","DV"),date=new Date().toISOString();
+  const net=qty*Number(sold.price),taxReturn=net*Number(sold.tax||0)/100,amount=net+taxReturn,costReturn=qty*Number((sold.cost ?? s.products.find(p=>p.id===productId)?.cost ?? 0)),number=nextConfiguredDoc("return","DV"),date=new Date().toISOString();
   let inv=s.inventory.find(i=>i.productId===productId&&i.branchId===sale.branchId);if(!inv){inv={id:DB.id("i"),productId,branchId:sale.branchId,stock:0,reserved:0};s.inventory.push(inv)}inv.stock+=qty;
   const creditSale=(sale.paymentCondition||sale.condition)==="credit";
   const rec=creditSale?reconcileReceivableForReturn({...sale,paymentCondition:"credit"},amount):{arReduction:0,excess:amount};

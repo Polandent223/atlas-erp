@@ -1,9 +1,3 @@
-# ATLAS — Fase 50 · Corrección de declaración duplicada
+# ATLAS — Fase 51 · Revisión integral
 
-Corrige el error real detectado por Chrome:
-`Identifier 'er' has already been declared`.
-
-El botón `exportReport` ahora usa una variable única (`exportReportBtn`).
-
-Después de reemplazar archivos:
-Commit → Push origin → esperar GitHub Pages → Ctrl+Shift+R.
+Corrección completa de arranque, caché, sesión Supabase, sincronización y RPC principales.

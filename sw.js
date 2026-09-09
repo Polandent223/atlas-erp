@@ -1,8 +1,6 @@
-const CACHE="atlas-v50";
-const ASSETS=["./","./index.html","./assets/app.css","./assets/app.js","./assets/cloud-mode.js","./assets/release-readiness.js","./assets/workflow-audit.js","./assets/integral-audit.js","./assets/migration-mapper.js","./assets/cloud-import-executor.js","./assets/cloud-auth.js","./assets/cloud-import.js","./assets/migration.js","./assets/data.js","./assets/config.js","./assets/supabase.js","./assets/repositories.js","./assets/sync.js"];
-self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
-self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));
-self.addEventListener("fetch",e=>{
- if(e.request.url.includes("supabase.co")||e.request.url.includes("esm.sh")) return;
- e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));
-});
+const CACHE="atlas-v51";
+const ASSETS=["./","./index.html","./manifest.webmanifest","./assets/app.css","./assets/app.js","./assets/cloud-mode.js","./assets/release-readiness.js","./assets/workflow-audit.js","./assets/integral-audit.js","./assets/migration-mapper.js","./assets/cloud-import-executor.js","./assets/cloud-auth.js","./assets/cloud-import.js","./assets/migration.js","./assets/data.js","./assets/config.js","./assets/supabase.js","./assets/repositories.js","./assets/sync.js"];
+self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)))});
+self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
+async function networkFirst(request){try{const response=await fetch(request);if(response&&response.ok){const cache=await caches.open(CACHE);cache.put(request,response.clone())}return response}catch(error){const cached=await caches.match(request);if(cached)return cached;throw error}}
+self.addEventListener("fetch",e=>{const url=new URL(e.request.url);if(url.hostname.includes("supabase.co")||url.hostname.includes("esm.sh")||e.request.method!=="GET")return;e.respondWith(networkFirst(e.request))});

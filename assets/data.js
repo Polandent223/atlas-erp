@@ -207,7 +207,7 @@ function hardenState(s){
    expensePrefix:fc.expensePrefix||"G",returnPrefix:fc.returnPrefix||"DV",purchaseReturnPrefix:fc.purchaseReturnPrefix||"DC",
    stockTransferPrefix:fc.stockTransferPrefix||"TR",cashTransferPrefix:fc.cashTransferPrefix||"TF",cashClosingPrefix:fc.cashClosingPrefix||"CJ"
   });
-  s.schemaVersion=50;
+  s.schemaVersion=51;
   return s;
 }
 
@@ -255,21 +255,15 @@ export const DB = {
   currentUser(){ return state.users.find(u=>u.id===state.session.userId)||null; },
   setRemoteSession(profile){
     const localId=profile.id;
+    if(profile.company){ state.company={...state.company,id:profile.company.id,name:profile.company.name||state.company.name,taxId:profile.company.tax_id||"",country:profile.company.country||"VE",baseCurrency:profile.company.base_currency||"USD"}; }
+    if(Array.isArray(profile.branches)&&profile.branches.length){ state.branches=profile.branches.map(b=>({id:b.id,name:b.name,code:b.code||"",status:b.active===false?"Inactivo":"Activo"})); }
+    if(profile.role?.id){ const remoteRole={id:profile.role.id,name:profile.role.name||"Usuario",description:"Rol sincronizado desde Supabase",permissions:Array.isArray(profile.role.permissions)?profile.role.permissions:[]}; const pos=state.roles.findIndex(r=>r.id===remoteRole.id); if(pos>=0)state.roles[pos]=remoteRole;else state.roles.push(remoteRole); }
     let user=state.users.find(u=>u.id===localId);
-    if(!user){
-      user={id:localId,name:profile.full_name||profile.email,email:profile.email,pin:"",roleId:profile.role_id,branchId:profile.branch_id||"all",status:profile.status||"Activo"};
-      state.users.push(user);
-    }else{
-      user.name=profile.full_name||user.name;
-      user.email=profile.email||user.email;
-      user.roleId=profile.role_id||user.roleId;
-      user.branchId=profile.branch_id||user.branchId;
-      user.status=profile.status||user.status;
-    }
-    state.session={loggedIn:true,userId:localId};
-    state.sync.status="connected";
-    this.save();
-    return user;
+    const branchIds=Array.isArray(profile.branch_ids)?profile.branch_ids:[profile.branch_id].filter(Boolean);
+    if(!user){ user={id:localId,name:profile.full_name||profile.email,email:profile.email,pin:"",roleId:profile.role_id||profile.role?.id||null,branchId:profile.role?.permissions?.includes("*")?"all":(branchIds[0]||"all"),status:profile.status==="ACTIVE"?"Activo":(profile.status||"Activo")}; state.users.push(user); }
+    else{ user.name=profile.full_name||user.name; user.email=profile.email||user.email; user.roleId=profile.role_id||profile.role?.id||user.roleId; user.branchId=profile.role?.permissions?.includes("*")?"all":(branchIds[0]||user.branchId); user.status=profile.status==="ACTIVE"?"Activo":(profile.status||user.status); }
+    state.branchAccess[localId]=profile.role?.permissions?.includes("*")?["*"]:branchIds;
+    state.session={loggedIn:true,userId:localId}; state.sync.status="connected"; this.save(); return user;
   },
   setSyncStatus(status,error=null){
     state.sync.status=status;
@@ -302,7 +296,7 @@ export const DB = {
     return state.branches.filter(b=>this.canBranch(b.id));
   },
   exportBackup(){
-    return JSON.stringify({version:50,exportedAt:now(),data:state},null,2);
+    return JSON.stringify({version:51,exportedAt:now(),data:state},null,2);
   },
   importBackup(payload){
     const parsed=typeof payload==="string"?JSON.parse(payload):payload;

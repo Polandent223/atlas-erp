@@ -7,12 +7,15 @@ const TABLES = {
   products:"products",
   inventory:"inventory",
   sales:"sales",
+  saleItems:"sale_items",
   purchases:"purchases",
+  purchaseItems:"purchase_items",
   receivables:"receivables",
   payables:"payables",
   cashAccounts:"cash_accounts",
   cashMovements:"cash_movements",
   expenses:"expenses",
+  accountingAccounts:"accounting_accounts",
   exchangeRates:"exchange_rates",
   quotations:"quotations",
   stockTransfers:"stock_transfers",
@@ -62,7 +65,7 @@ export const RemoteRepo = {
   },
 
   async hasPermission(permission){
-    return await this.rpc("has_permission",{p_key:permission}) === true;
+    return await this.rpc("has_permission",{p_permission:permission}) === true;
   },
 
   async requirePermission(permission){
