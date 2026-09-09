@@ -1,0 +1,1 @@
+import fs from "node:fs";const d=fs.readFileSync("assets/data.js","utf8"),a=fs.readFileSync("assets/app.js","utf8");if(!d.includes("s.schemaVersion=37")||!a.includes("integralAuditPage"))throw new Error("smoke");console.log("ATLAS Fase 37 smoke OK");

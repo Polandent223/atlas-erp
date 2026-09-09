@@ -1,0 +1,4 @@
+import fs from "node:fs";const s=fs.readFileSync("sql/ATLAS_TRANSACTIONAL_RPCS_PHASE45.sql","utf8"),j=fs.readFileSync("assets/cloud-operations.js","utf8");
+for(const x of ["atlas_create_sale","atlas_create_purchase","atlas_collect_receivable","atlas_pay_payable","for update","next_document_number","enforce_balanced_journal","deferrable initially deferred","revoke insert, update, delete"])if(!s.toLowerCase().includes(x.toLowerCase()))throw new Error(x);
+for(const x of ["cloudCreateSale","cloudCreatePurchase","cloudCollectReceivable","cloudPayPayable"])if(!j.includes(x))throw new Error(x);
+console.log("ATLAS Fase 45 transactional RPC contract OK");

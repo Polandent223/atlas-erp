@@ -1,0 +1,10 @@
+{
+  "name": "ATLAS — Sistema de Gestión Empresarial",
+  "short_name": "ATLAS",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#0b1f33",
+  "icons": [],
+  "scope": "./"
+}

@@ -1,0 +1,10 @@
+import fs from "node:fs";
+const c=fs.readFileSync("assets/config.js","utf8"),s=fs.readFileSync("assets/supabase.js","utf8"),p=fs.readFileSync("sql/ATLAS_CONNECTION_PATCH_PHASE47.sql","utf8"),d=fs.readFileSync("assets/data.js","utf8");
+if(!d.includes("s.schemaVersion=47"))throw new Error("schema47");
+if(!c.includes('mode: "supabase"'))throw new Error("mode");
+if(!c.includes("https://fytleoumhkykhdzxwetk.supabase.co"))throw new Error("url");
+if(!c.includes("sb_publishable_"))throw new Error("publishable");
+if(c.includes("sb_secret_"))throw new Error("secret");
+for(const x of ["ATLAS_SUPABASE_CLIENT","user_roles","user_branches"])if(!s.includes(x))throw new Error(x);
+for(const x of ["current_user_scope","atlas_healthcheck","atlas_workspace_snapshot","ATLAS CONNECTION PATCH READY"])if(!p.includes(x))throw new Error(x);
+console.log("ATLAS Fase 47 cloud configuration contract OK");
