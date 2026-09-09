@@ -1,9 +1,9 @@
-# ATLAS — Fase 49 · Corrección exacta de arranque
+# ATLAS — Fase 50 · Corrección de declaración duplicada
 
-Corrige el error real detectado por Chrome en `app.js:883`:
-mezcla inválida de `??` con `||` sin paréntesis.
+Corrige el error real detectado por Chrome:
+`Identifier 'er' has already been declared`.
 
-También elimina el 404 innecesario de `favicon.ico`.
+El botón `exportReport` ahora usa una variable única (`exportReportBtn`).
 
-Después de copiar esta versión al repositorio:
+Después de reemplazar archivos:
 Commit → Push origin → esperar GitHub Pages → Ctrl+Shift+R.

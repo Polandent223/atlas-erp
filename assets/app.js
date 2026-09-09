@@ -1085,7 +1085,7 @@ function bind(){
  document.querySelectorAll("[data-void-sale]").forEach(b=>b.onclick=()=>voidSale(b.dataset.voidSale));
  document.querySelectorAll("[data-pay-ap]").forEach(b=>b.onclick=()=>payPayable(b.dataset.payAp));
  const mj=document.getElementById("manualJournal");if(mj)mj.onclick=manualJournal;
- const er=document.getElementById("exportReport");if(er)er.onclick=exportReport;
+ const exportReportBtn=document.getElementById("exportReport");if(exportReportBtn)exportReportBtn.onclick=exportReport;
  document.querySelectorAll("[data-print-sale]").forEach(b=>b.onclick=()=>printDocument("sale",b.dataset.printSale));
  document.querySelectorAll("[data-print-purchase]").forEach(b=>b.onclick=()=>printDocument("purchase",b.dataset.printPurchase));
  const nt=document.getElementById("newTransfer");if(nt)nt.onclick=newStockTransfer;
