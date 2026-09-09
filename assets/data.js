@@ -207,7 +207,7 @@ function hardenState(s){
    expensePrefix:fc.expensePrefix||"G",returnPrefix:fc.returnPrefix||"DV",purchaseReturnPrefix:fc.purchaseReturnPrefix||"DC",
    stockTransferPrefix:fc.stockTransferPrefix||"TR",cashTransferPrefix:fc.cashTransferPrefix||"TF",cashClosingPrefix:fc.cashClosingPrefix||"CJ"
   });
-  s.schemaVersion=52;
+  s.schemaVersion=53;
   return s;
 }
 
@@ -232,6 +232,21 @@ function load(){
 }
 let state=load();
 
+
+function cleanupLegacyDemoForRemote(profile){
+  const remoteUserId=profile?.id;
+  const remoteRoleId=profile?.role_id||profile?.role?.id||null;
+  const legacyUserIds=new Set(["u1","u2"]);
+  const legacyEmails=new Set(["admin@atlas.local","ventas@atlas.local"]);
+  state.users=(state.users||[]).filter(u=>u?.id===remoteUserId || (!legacyUserIds.has(u?.id)&&!legacyEmails.has(String(u?.email||"").toLowerCase())));
+  state.roles=(state.roles||[]).filter(r=>!(["r1","r2","r3"].includes(r?.id)) || r?.id===remoteRoleId);
+  state.customers=(state.customers||[]).filter(x=>x?.id!=="cl1" && x?.name!=="Cliente Demo");
+  state.suppliers=(state.suppliers||[]).filter(x=>x?.id!=="pr1" && x?.name!=="Proveedor Demo");
+  state.products=(state.products||[]).filter(x=>x?.id!=="p1" && !(x?.sku==="AT-001"&&x?.name==="Producto Demo"));
+  state.inventory=(state.inventory||[]).filter(x=>x?.productId!=="p1" && !["i1","i2"].includes(x?.id));
+  state.movements=(state.movements||[]).filter(x=>x?.productId!=="p1" && !["m1","m2"].includes(x?.id));
+}
+
 export const DB = {
   mode: CONFIG.mode,
   getState(){ return state; },
@@ -254,6 +269,7 @@ export const DB = {
   logout(){ state.session.loggedIn=false; this.save(); },
   currentUser(){ return state.users.find(u=>u.id===state.session.userId)||null; },
   setRemoteSession(profile){
+    cleanupLegacyDemoForRemote(profile);
     const localId=profile.id;
     if(profile.company){ state.company={...state.company,id:profile.company.id,name:profile.company.name||state.company.name,taxId:profile.company.tax_id||"",country:profile.company.country||"VE",baseCurrency:profile.company.base_currency||"USD"}; }
     if(Array.isArray(profile.branches)&&profile.branches.length){ state.branches=profile.branches.map(b=>({id:b.id,name:b.name,code:b.code||"",status:b.active===false?"Inactivo":"Activo"})); }
@@ -296,7 +312,7 @@ export const DB = {
     return state.branches.filter(b=>this.canBranch(b.id));
   },
   exportBackup(){
-    return JSON.stringify({version:52,exportedAt:now(),data:state},null,2);
+    return JSON.stringify({version:53,exportedAt:now(),data:state},null,2);
   },
   importBackup(payload){
     const parsed=typeof payload==="string"?JSON.parse(payload):payload;

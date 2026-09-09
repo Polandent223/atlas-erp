@@ -86,7 +86,7 @@ function loginView(){
  return `<div class="login-page"><div class="login-card">
    <div class="logo-lockup"><div class="logo-mark">A</div><div><div class="logo-title">ATLAS</div><div class="logo-sub">Sistema de Gestión Empresarial</div></div></div>
    <form id="loginForm">
-    <div class="field"><label>Correo</label><input name="email" type="email" value="admin@atlas.local" required></div>
+    <div class="field"><label>Correo</label><input name="email" type="email" value="${isSupabaseConfigured()?"":"admin@atlas.local"}" required></div>
     <div class="field"><label>${isSupabaseConfigured()?"Contraseña":"PIN"}</label><input name="pin" type="password" value="${isSupabaseConfigured()?"":"1234"}" required></div>
     <button class="btn btn-primary btn-block">Entrar</button>
    </form>
@@ -1040,6 +1040,17 @@ function bind(){
      const profile=await getRemoteProfile();
      if(!profile)throw new Error("Tu usuario no tiene perfil de ATLAS.");
      DB.setRemoteSession(profile);
+     DB.setSyncStatus("syncing");
+     try{
+       await pullCoreWorkspace(state());
+       await pullTransactions(state());
+       await pullAccounting(state());
+       DB.setSyncStatus("synced");
+       DB.save();
+     }catch(syncErr){
+       DB.setSyncStatus("error",syncErr?.message||String(syncErr));
+       console.error("ATLAS: sincronización inicial incompleta",syncErr);
+     }
    }else{
      if(!DB.login(f.get("email"),f.get("pin")))return alert("Correo o PIN incorrecto");
    }
