@@ -1,16 +1,26 @@
 import { RemoteRepo } from "./repositories.js";
 import { getRemoteProfile } from "./supabase.js";
 const now=()=>new Date().toISOString();
+function mapBranch(r){return {id:r.id,name:r.name,code:r.code||"",city:r.city||"",status:r.active===false?"Inactivo":"Activo"}}
 function mapCustomer(r){return {id:r.id,code:r.code||"",name:r.name,taxId:r.tax_id||"",phone:r.phone||"",email:r.email||"",city:r.address||"",creditLimit:0,status:r.active===false?"Inactivo":"Activo",balance:0}}
 function mapSupplier(r){return {id:r.id,code:r.code||"",name:r.name,taxId:r.tax_id||"",phone:r.phone||"",email:r.email||"",city:r.address||"",status:r.active===false?"Inactivo":"Activo",balance:0}}
 function mapProduct(r){return {id:r.id,sku:r.sku||"",name:r.name,category:r.category||"General",cost:Number(r.cost||0),price:Number(r.price||0),tax:Number(r.tax||0),minStock:Number(r.min_stock||0),status:r.active===false?"Inactivo":"Activo"}}
 function mapInventory(r){return {id:`${r.branch_id}:${r.product_id}`,productId:r.product_id,branchId:r.branch_id,stock:Number(r.stock||0),reserved:Number(r.reserved||0)}}
 function mapRate(r){return {id:r.id,date:(r.effective_at||now()).slice(0,10),currency:r.currency,rate:Number(r.rate||0),source:r.source||""}}
+function mapPaymentMethod(r){const kind=String(r.kind||'OTHER').toLowerCase();return {id:r.id,name:r.name,type:kind,active:r.active!==false,status:r.active===false?'Inactivo':'Activo'}}
 export async function pullCoreWorkspace(localState){
  const profile=await getRemoteProfile(); if(!profile)throw new Error("No hay perfil remoto.");
- const [customers,suppliers,products,inventory,rates]=await Promise.all([RemoteRepo.list("customers",{order:{column:"created_at",ascending:true}}),RemoteRepo.list("suppliers",{order:{column:"created_at",ascending:true}}),RemoteRepo.list("products",{order:{column:"sku",ascending:true}}),RemoteRepo.list("inventory"),RemoteRepo.list("exchangeRates",{order:{column:"effective_at",ascending:false}})]);
- localState.customers=customers.map(mapCustomer); localState.suppliers=suppliers.map(mapSupplier); localState.products=products.map(mapProduct); localState.inventory=inventory.map(mapInventory); localState.exchangeRates=rates.map(mapRate);
- return {profile,counts:{customers:localState.customers.length,suppliers:localState.suppliers.length,products:localState.products.length,inventory:localState.inventory.length,exchangeRates:localState.exchangeRates.length}};
+ const [branches,customers,suppliers,products,inventory,rates,paymentMethods]=await Promise.all([
+  RemoteRepo.list("branches",{order:{column:"name",ascending:true}}),
+  RemoteRepo.list("customers",{order:{column:"created_at",ascending:true}}),
+  RemoteRepo.list("suppliers",{order:{column:"created_at",ascending:true}}),
+  RemoteRepo.list("products",{order:{column:"sku",ascending:true}}),
+  RemoteRepo.list("inventory"),
+  RemoteRepo.list("exchangeRates",{order:{column:"effective_at",ascending:false}}),
+  RemoteRepo.list("paymentMethods",{order:{column:"name",ascending:true}})
+ ]);
+ localState.branches=branches.map(mapBranch); localState.customers=customers.map(mapCustomer); localState.suppliers=suppliers.map(mapSupplier); localState.products=products.map(mapProduct); localState.inventory=inventory.map(mapInventory); localState.exchangeRates=rates.map(mapRate); localState.paymentMethods=paymentMethods.map(mapPaymentMethod);
+ return {profile,counts:{branches:localState.branches.length,customers:localState.customers.length,suppliers:localState.suppliers.length,products:localState.products.length,inventory:localState.inventory.length,exchangeRates:localState.exchangeRates.length,paymentMethods:localState.paymentMethods.length}};
 }
 export async function pullTransactions(localState){
  const [sales,saleItems,purchases,purchaseItems,receivables,payables,cashAccounts,cashMovements,expenses]=await Promise.all([RemoteRepo.list("sales",{order:{column:"created_at",ascending:false}}),RemoteRepo.list("saleItems"),RemoteRepo.list("purchases",{order:{column:"created_at",ascending:false}}),RemoteRepo.list("purchaseItems"),RemoteRepo.list("receivables",{order:{column:"due_date",ascending:false}}),RemoteRepo.list("payables",{order:{column:"due_date",ascending:false}}),RemoteRepo.list("cashAccounts",{order:{column:"name",ascending:true}}),RemoteRepo.list("cashMovements",{order:{column:"created_at",ascending:false}}),RemoteRepo.list("expenses",{order:{column:"created_at",ascending:false}})]);
