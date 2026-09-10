@@ -103,7 +103,13 @@ export const RemoteRepo = {
   updateMaster(args){ return this.rpc("atlas_update_master",args); },
   createBranch(args){ return this.rpc("atlas_create_branch",args); },
   createPaymentMethod(args){ return this.rpc("atlas_create_payment_method",args); },
-  createExchangeRate(args){ return this.rpc("atlas_create_exchange_rate",args); }
+  createExchangeRate(args){ return this.rpc("atlas_create_exchange_rate",args); },
+  accessSnapshot(){ return this.rpc("atlas_access_snapshot",{}); },
+  createRole(args){ return this.rpc("atlas_create_role",args); },
+  updateRole(args){ return this.rpc("atlas_update_role",args); },
+  assignUserAccess(args){ return this.rpc("atlas_assign_user_access",args); },
+  updateCompany(args){ return this.rpc("atlas_update_company",args); },
+  updateBranch(args){ return this.rpc("atlas_update_branch",args); }
 };
 
 export function toRemoteRow(key,row,companyId){
