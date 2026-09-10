@@ -2,7 +2,6 @@
 -- Devolución parcial por producto: inventario + CxP/crédito proveedor + reverso contable + auditoría.
 -- No mueve caja automáticamente: cualquier reembolso exige cuenta y tasa explícitas.
 
--- El crédito otorgado por un proveedor es un activo, separado de CxP.
 insert into public.accounting_accounts(company_id,code,name,type,active)
 select c.id,'1.1.05','Créditos de proveedores','Activo',true from public.companies c
 on conflict(company_id,code) do nothing;
@@ -29,8 +28,7 @@ begin
  from public.purchase_returns r
  where r.company_id=cid and r.purchase_id=p.id and r.payload->>'product_id'=p_product_id::text;
  if already+p_qty>li.qty then raise exception 'Cantidad devuelta supera la comprada'; end if;
- select stock-reserved into available from public.inventory
- where company_id=cid and branch_id=p.branch_id and product_id=p_product_id for update;
+ select stock-reserved into available from public.inventory where company_id=cid and branch_id=p.branch_id and product_id=p_product_id for update;
  if available is null or available<p_qty then raise exception 'Stock insuficiente para devolver al proveedor'; end if;
  subtotal_amount:=round(p_qty*li.unit_cost,4);
  tax_amount:=case when p.subtotal>0 then round(subtotal_amount*(p.tax/p.subtotal),4) else 0 end;
@@ -38,24 +36,18 @@ begin
  n:=public.next_document_number('PURCHASE_RETURN','DC-');
  insert into public.purchase_returns(id,company_id,purchase_id,number,total,payload)
  values(rid,cid,p.id,n,amount,jsonb_build_object('product_id',p_product_id,'qty',p_qty,'subtotal',subtotal_amount,'tax',tax_amount,'currency','USD'));
- update public.inventory set stock=stock-p_qty
- where company_id=cid and branch_id=p.branch_id and product_id=p_product_id;
-
+ update public.inventory set stock=stock-p_qty where company_id=cid and branch_id=p.branch_id and product_id=p_product_id;
  select * into ap from public.payables where company_id=cid and purchase_id=p.id and status<>'PAID' order by balance desc limit 1 for update;
  if ap.id is not null then
    ap_apply:=least(amount,ap.balance);
-   update public.payables set balance=balance-ap_apply,
-     status=case when balance-ap_apply<=0.0001 then 'PAID' else 'OPEN' end where id=ap.id;
+   update public.payables set balance=balance-ap_apply,status=case when balance-ap_apply<=0.0001 then 'PAID' else 'OPEN' end where id=ap.id;
  end if;
  credit_amount:=round(amount-ap_apply,4);
  if credit_amount>0 then
    if p.supplier_id is null then raise exception 'La devolución genera crédito pero la compra no tiene proveedor'; end if;
-   insert into public.supplier_credits(company_id,supplier_id,balance,currency,reference)
-   values(cid,p.supplier_id,credit_amount,'USD',n);
+   insert into public.supplier_credits(company_id,supplier_id,balance,currency,reference) values(cid,p.supplier_id,credit_amount,'USD',n);
  end if;
-
- -- F67: CxP sólo se debita por el importe aplicado realmente a CxP.
- -- El excedente debita Créditos de proveedores, alineando GL y subledger.
+ update public.purchase_returns set payload=payload||jsonb_build_object('ap_applied',ap_apply,'supplier_credit',credit_amount) where id=rid;
  perform public.atlas_post_journal(cid,n,'Devolución de compra',jsonb_build_array(
    jsonb_build_object('account_code','2.1.01','debit',ap_apply,'credit',0),
    jsonb_build_object('account_code','1.1.05','debit',credit_amount,'credit',0),
