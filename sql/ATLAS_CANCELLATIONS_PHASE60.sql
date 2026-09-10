@@ -21,8 +21,6 @@ begin
 end $$;
 revoke all on function public.atlas_reverse_journal(uuid,text,text,text) from public;
 
-after_placeholder:
-
 create or replace function public.atlas_cancel_sale(p_sale uuid,p_reason text default null)
 returns jsonb language plpgsql security definer set search_path=public as $$
 declare cid uuid:=public.current_company_id(); s public.sales%rowtype; li record; cm record; ar public.receivables%rowtype; ref text;
