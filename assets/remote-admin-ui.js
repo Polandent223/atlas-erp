@@ -56,6 +56,38 @@ async function saveRemoteCashAccount(form){
  await refreshAll();
 }
 
+async function saveRemoteBranch(form){
+ const fd=new FormData(form);
+ const name=String(fd.get('name')||'').trim();
+ const city=String(fd.get('city')||'').trim();
+ if(!name) throw new Error('Nombre es obligatorio.');
+ const code=name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]/g,'').slice(0,8).toUpperCase()||null;
+ await RemoteRepo.createBranch({p_name:name,p_code:code,p_city:city||null});
+ await refreshAll();
+}
+
+async function saveRemotePaymentMethod(form){
+ const fd=new FormData(form);
+ const name=String(fd.get('name')||'').trim();
+ const kind=String(fd.get('type')||'other').trim().toUpperCase();
+ if(!name) throw new Error('Nombre es obligatorio.');
+ await RemoteRepo.createPaymentMethod({p_name:name,p_kind:kind});
+ await refreshAll();
+}
+
+async function saveRemoteRate(form){
+ const fd=new FormData(form);
+ const currency=String(fd.get('currency')||'').trim().toUpperCase();
+ const rate=Number(fd.get('rate'));
+ const source=String(fd.get('source')||'Manual').trim()||'Manual';
+ const date=String(fd.get('date')||'').trim();
+ if(!currency) throw new Error('Selecciona una moneda.');
+ if(!Number.isFinite(rate)||rate<=0) throw new Error('La tasa debe ser mayor a cero.');
+ const effectiveAt=date?`${date}T12:00:00Z`:new Date().toISOString();
+ await RemoteRepo.createExchangeRate({p_currency:currency,p_rate:rate,p_source:source,p_effective_at:effectiveAt});
+ await refreshAll();
+}
+
 document.addEventListener('click',event=>{
  if(!isSupabaseConfigured()) return;
  const btn=event.target.closest?.('[data-adjust]');
@@ -70,10 +102,15 @@ document.addEventListener('submit',event=>{
  const form=event.target;
  if(!(form instanceof HTMLFormElement)||form.id!=='modalForm') return;
  const title=form.closest('.modal')?.querySelector('h3')?.textContent?.trim()||'';
- if(title!=='Nueva cuenta') return;
+ let handler=null,label='';
+ if(title==='Nueva cuenta'){handler=saveRemoteCashAccount;label='la cuenta';}
+ else if(title==='Nueva sucursal'){handler=saveRemoteBranch;label='la sucursal';}
+ else if(title==='Nuevo método de pago'){handler=saveRemotePaymentMethod;label='el método de pago';}
+ else if(title==='Nueva tasa'){handler=saveRemoteRate;label='la tasa';}
+ else return;
  event.preventDefault();
  event.stopImmediatePropagation();
  const btn=form.querySelector('button.btn-primary');
  if(btn){btn.disabled=true;btn.dataset.oldText=btn.textContent;btn.textContent='Guardando…';}
- saveRemoteCashAccount(form).then(()=>{form.closest('.modal-bg')?.remove();window.location.reload();}).catch(error=>{DB.setSyncStatus('error',error?.message||String(error));alert('No se pudo guardar la cuenta en la nube: '+(error?.message||error));if(btn){btn.disabled=false;btn.textContent=btn.dataset.oldText||'Guardar';}});
+ handler(form).then(()=>{form.closest('.modal-bg')?.remove();window.location.reload();}).catch(error=>{DB.setSyncStatus('error',error?.message||String(error));alert(`No se pudo guardar ${label} en la nube: `+(error?.message||error));if(btn){btn.disabled=false;btn.textContent=btn.dataset.oldText||'Guardar';}});
 },true);
