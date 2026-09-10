@@ -3,7 +3,6 @@
 -- Devolución parcial por producto, reintegro de inventario, ajuste CxC/crédito cliente,
 -- reverso contable y auditoría. No realiza reembolso de caja automático.
 
--- El crédito a favor del cliente es un pasivo, separado de CxC.
 insert into public.accounting_accounts(company_id,code,name,type,active)
 select c.id,'2.1.03','Créditos de clientes','Pasivo',true from public.companies c
 on conflict(company_id,code) do nothing;
@@ -40,23 +39,17 @@ begin
  insert into public.inventory(company_id,branch_id,product_id,stock,reserved)
  values(cid,s.branch_id,p_product_id,p_qty,0)
  on conflict(branch_id,product_id) do update set stock=public.inventory.stock+excluded.stock;
-
- -- Reduce primero la deuda pendiente. Sólo el excedente se transforma en crédito del cliente.
  select * into ar from public.receivables where company_id=cid and sale_id=s.id and status<>'PAID' order by balance desc limit 1 for update;
  if ar.id is not null then
    ar_apply:=least(amount,ar.balance);
-   update public.receivables set balance=balance-ar_apply,
-     status=case when balance-ar_apply<=0.0001 then 'PAID' else 'OPEN' end where id=ar.id;
+   update public.receivables set balance=balance-ar_apply,status=case when balance-ar_apply<=0.0001 then 'PAID' else 'OPEN' end where id=ar.id;
  end if;
  credit_amount:=round(amount-ar_apply,4);
  if credit_amount>0 then
    if s.customer_id is null then raise exception 'La devolución genera crédito pero la venta no tiene cliente'; end if;
-   insert into public.customer_credits(company_id,customer_id,balance,currency,reference)
-   values(cid,s.customer_id,credit_amount,'USD',n);
+   insert into public.customer_credits(company_id,customer_id,balance,currency,reference) values(cid,s.customer_id,credit_amount,'USD',n);
  end if;
-
- -- F67: CxC sólo se acredita por el importe realmente aplicado a CxC.
- -- El excedente acredita el pasivo Créditos de clientes; así GL y subledger quedan alineados.
+ update public.sale_returns set payload=payload||jsonb_build_object('ar_applied',ar_apply,'customer_credit',credit_amount) where id=rid;
  perform public.atlas_post_journal(cid,n,'Devolución de venta',jsonb_build_array(
    jsonb_build_object('account_code','4.1.01','debit',subtotal_amount,'credit',0),
    jsonb_build_object('account_code','2.1.02','debit',tax_amount,'credit',0),
