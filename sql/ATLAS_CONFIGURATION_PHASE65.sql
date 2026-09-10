@@ -3,6 +3,16 @@
 
 alter table public.branches add column if not exists city text;
 
+-- F44 eliminó la política genérica de branches; F65 restablece lectura segura por empresa
+-- y deja la escritura directa restringida. Las altas se hacen por RPC auditado.
+drop policy if exists atlas_branches_read on public.branches;
+create policy atlas_branches_read on public.branches for select to authenticated
+using(company_id=public.current_company_id() and (public.has_permission('branches.all') or public.can_access_branch(id)));
+drop policy if exists atlas_branches_write on public.branches;
+create policy atlas_branches_write on public.branches for all to authenticated
+using(company_id=public.current_company_id() and (public.has_permission('settings.manage') or public.has_permission('*')))
+with check(company_id=public.current_company_id() and (public.has_permission('settings.manage') or public.has_permission('*')));
+
 create or replace function public.atlas_create_branch(p_name text,p_code text default null,p_city text default null)
 returns jsonb language plpgsql security definer set search_path=public as $$
 declare cid uuid:=public.current_company_id(); rid uuid:=gen_random_uuid(); code_value text;
