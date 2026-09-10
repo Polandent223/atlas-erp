@@ -29,6 +29,18 @@ function openTransfer(){
   return `Transferencia ${r?.reference||''} registrada.`;
  });
 }
+function openExpense(){
+ const accounts=activeAccounts();if(!accounts.length)return alert('No hay cuentas activas para registrar el gasto.');
+ modal('Nuevo gasto · nube',`<div class="notice">El monto se ingresa en la moneda de la cuenta seleccionada. ATLAS calcula y guarda el equivalente contable en USD junto con la tasa usada.</div><div class="field"><label>Categoría</label><input name="category" value="Operativo"></div><div class="field"><label>Descripción</label><input name="description" required></div><div class="field"><label>Cuenta origen</label><select name="account">${accountOptions()}</select></div><div class="field"><label>Monto en moneda de la cuenta</label><input name="cashAmount" type="number" min="0.0001" step="0.0001" required></div><div class="field"><label>Referencia (opcional)</label><input name="reference"></div>`,async fd=>{
+  const account=accounts.find(a=>a.id===fd.get('account'));if(!account)throw new Error('Cuenta inválida.');
+  const cashAmount=Number(fd.get('cashAmount'));if(!Number.isFinite(cashAmount)||cashAmount<=0)throw new Error('Monto inválido.');if(Number(account.balance||0)<cashAmount)throw new Error('Saldo insuficiente.');
+  const rate=rateFor(account.currency);if(!rate)throw new Error(`Falta tasa vigente para ${account.currency}.`);
+  const base=String(account.currency).toUpperCase()==='USD'?cashAmount:cashAmount/rate;
+  const description=String(fd.get('description')||'').trim();if(!description)throw new Error('Descripción obligatoria.');
+  const r=await RemoteRepo.createExpenseFx({p_cash_account_id:account.id,p_category:String(fd.get('category')||'Operativo').trim(),p_description:description,p_cash_amount:cashAmount,p_base_amount_usd:base,p_rate:rate,p_reference:String(fd.get('reference')||'').trim()||null});
+  return `Gasto ${r?.reference||''} registrado · ${account.currency} ${cashAmount.toFixed(2)} · base USD ${Number(r?.base_amount_usd||base).toFixed(2)}.`;
+ });
+}
 function openClosing(){
  const accounts=activeAccounts();if(!accounts.length)return alert('No hay cuentas activas.');
  modal('Cierre de caja · nube',`<div class="field"><label>Cuenta</label><select name="account">${accountOptions()}</select></div><div class="field"><label>Monto contado físicamente</label><input name="counted" type="number" min="0" step="0.0001" required></div><div class="field"><label>Observación</label><input name="note" value="Cierre de caja"></div>`,async fd=>{
@@ -49,6 +61,6 @@ function openSupplierCredit(id){
 }
 
 document.addEventListener('click',event=>{
- if(!isSupabaseConfigured())return;const t=event.target.closest?.('#newCashTransfer,#newCashClosing,[data-reconcile-cash],[data-use-credit],[data-use-supplier-credit]');if(!t)return;event.preventDefault();event.stopImmediatePropagation();
- if(t.id==='newCashTransfer')return openTransfer();if(t.id==='newCashClosing')return openClosing();if(t.dataset.reconcileCash)return openReconcile(t.dataset.reconcileCash);if(t.dataset.useCredit)return openCustomerCredit(t.dataset.useCredit);if(t.dataset.useSupplierCredit)return openSupplierCredit(t.dataset.useSupplierCredit);
+ if(!isSupabaseConfigured())return;const t=event.target.closest?.('#newCashTransfer,#newCashClosing,#newExpense,[data-reconcile-cash],[data-use-credit],[data-use-supplier-credit]');if(!t)return;event.preventDefault();event.stopImmediatePropagation();
+ if(t.id==='newCashTransfer')return openTransfer();if(t.id==='newCashClosing')return openClosing();if(t.id==='newExpense')return openExpense();if(t.dataset.reconcileCash)return openReconcile(t.dataset.reconcileCash);if(t.dataset.useCredit)return openCustomerCredit(t.dataset.useCredit);if(t.dataset.useSupplierCredit)return openSupplierCredit(t.dataset.useSupplierCredit);
 },true);
