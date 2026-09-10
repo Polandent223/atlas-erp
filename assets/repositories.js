@@ -22,7 +22,9 @@ const TABLES = {
   quotations:"quotations",
   stockTransfers:"stock_transfers",
   returns:"sale_returns",
-  purchaseReturns:"purchase_returns"
+  purchaseReturns:"purchase_returns",
+  customerCredits:"customer_credits",
+  supplierCredits:"supplier_credits"
 };
 
 export const RemoteRepo = {
