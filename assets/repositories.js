@@ -19,7 +19,8 @@ const TABLES = {
   exchangeRates:"exchange_rates",
   quotations:"quotations",
   stockTransfers:"stock_transfers",
-  returns:"sales_returns"
+  returns:"sale_returns",
+  purchaseReturns:"purchase_returns"
 };
 
 export const RemoteRepo = {
@@ -93,7 +94,12 @@ export const RemoteRepo = {
   payPayable(args){ return this.rpc("atlas_pay_payable",args); },
   transferStock(args){ return this.rpc("atlas_transfer_stock",args); },
   returnSale(args){ return this.rpc("atlas_return_sale",args); },
-  createExpense(args){ return this.rpc("atlas_create_expense",args); }
+  returnPurchase(args){ return this.rpc("atlas_return_purchase",args); },
+  voidSale(args){ return this.rpc("atlas_void_sale",args); },
+  voidPurchase(args){ return this.rpc("atlas_void_purchase",args); },
+  createExpense(args){ return this.rpc("atlas_create_expense",args); },
+  createMaster(args){ return this.rpc("atlas_create_master",args); },
+  updateMaster(args){ return this.rpc("atlas_update_master",args); }
 };
 
 export function toRemoteRow(key,row,companyId){
@@ -103,14 +109,14 @@ export function toRemoteRow(key,row,companyId){
     case "customers":
     case "suppliers":
       return {
-        id:row.id,company_id:companyId,code:row.code,name:row.name,tax_id:row.taxId||null,
-        phone:row.phone||null,email:row.email||null,city:row.city||null,status:row.status||"Activo"
+        id:row.id,company_id:companyId,code:row.code||null,name:row.name,tax_id:row.taxId||null,
+        phone:row.phone||null,email:row.email||null,address:row.city||null,active:row.status!=="Inactivo"
       };
     case "products":
       return {
-        id:row.id,company_id:companyId,sku:row.sku,name:row.name,category:row.category||null,
+        id:row.id,company_id:companyId,sku:row.sku,name:row.name,category:row.category||"General",
         cost:Number(row.cost||0),price:Number(row.price||0),tax:Number(row.tax||0),
-        min_stock:Number(row.minStock||0),status:row.status||"Activo"
+        min_stock:Number(row.minStock||0),active:row.status!=="Inactivo"
       };
     default: return base;
   }
