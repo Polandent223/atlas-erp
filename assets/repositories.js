@@ -2,6 +2,7 @@ import { getSupabase } from "./supabase.js";
 import { isSupabaseConfigured } from "./config.js";
 
 const TABLES = {
+  branches:"branches",
   customers:"customers",
   suppliers:"suppliers",
   products:"products",
@@ -17,6 +18,7 @@ const TABLES = {
   expenses:"expenses",
   accountingAccounts:"accounting_accounts",
   exchangeRates:"exchange_rates",
+  paymentMethods:"payment_methods",
   quotations:"quotations",
   stockTransfers:"stock_transfers",
   returns:"sale_returns",
@@ -85,7 +87,6 @@ export const RemoteRepo = {
   trialBalance(){ return this.list("atlas_trial_balance",{order:{column:"code",ascending:true}}); },
   generalLedger(){ return this.list("atlas_general_ledger",{order:{column:"entry_date",ascending:false}}); },
   financialSummary(){ return this.rpc("atlas_financial_summary",{}); },
-
   seedChartOfAccounts(){ return this.rpc("atlas_seed_chart_of_accounts",{}); },
 
   createSale(args){ return this.rpc("atlas_create_sale",args); },
@@ -99,7 +100,10 @@ export const RemoteRepo = {
   voidPurchase(args){ return this.rpc("atlas_void_purchase",args); },
   createExpense(args){ return this.rpc("atlas_create_expense",args); },
   createMaster(args){ return this.rpc("atlas_create_master",args); },
-  updateMaster(args){ return this.rpc("atlas_update_master",args); }
+  updateMaster(args){ return this.rpc("atlas_update_master",args); },
+  createBranch(args){ return this.rpc("atlas_create_branch",args); },
+  createPaymentMethod(args){ return this.rpc("atlas_create_payment_method",args); },
+  createExchangeRate(args){ return this.rpc("atlas_create_exchange_rate",args); }
 };
 
 export function toRemoteRow(key,row,companyId){
