@@ -1,6 +1,9 @@
 -- ATLAS Fase 57 — Operaciones remotas endurecidas
 -- Compatible con esquema de producción F32/F44. Reemplaza RPC legacy de F13 que usaba columnas antiguas.
 
+-- Campo operativo que la UI ya utiliza y que no existía en F44.
+alter table public.expenses add column if not exists category text not null default 'General';
+
 -- Cuenta contable de gastos operativos requerida.
 insert into public.accounting_accounts(company_id,code,name,type,active)
 select c.id,'5.2.01','Gastos operativos','Gasto',true from public.companies c
