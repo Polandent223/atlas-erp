@@ -40,6 +40,7 @@ export const RemoteRepo = {
   voidSale(args){return this.rpc("atlas_cancel_sale",args);},
   voidPurchase(args){return this.rpc("atlas_cancel_purchase",args);},
   createExpense(args){return this.rpc("atlas_create_expense",args);},
+  createExpenseFx(args){return this.rpc("atlas_create_expense_fx",args);},
   createMaster(args){return this.rpc("atlas_create_master",args);},
   updateMaster(args){return this.rpc("atlas_update_master",args);},
   createBranch(args){return this.rpc("atlas_create_branch",args);},
