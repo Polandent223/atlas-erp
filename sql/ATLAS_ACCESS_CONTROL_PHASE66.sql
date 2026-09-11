@@ -1,4 +1,4 @@
--- ATLAS Fase 66 — Usuarios, roles, permisos y configuración remota
+-- ATLAS Fase 66 / endurecimiento F71 — Usuarios, roles, permisos y configuración remota
 -- No crea usuarios de auth directamente: eso requiere un flujo administrativo seguro.
 
 alter table public.companies add column if not exists phone text;
@@ -7,14 +7,19 @@ alter table public.companies add column if not exists display_currency text not 
 
 create or replace function public.atlas_access_snapshot()
 returns jsonb language plpgsql security definer set search_path=public as $$
-declare cid uuid:=public.current_company_id(); result jsonb;
+declare cid uuid:=public.current_company_id(); result jsonb; own_role uuid;
 begin
  if cid is null then raise exception 'Sesión sin empresa'; end if;
  if not (public.has_permission('settings.manage') or public.has_permission('*')) then
-   -- Un usuario normal solo necesita sus propios datos; no exponer directorio completo.
+   -- Usuario normal: sólo su perfil y su propio rol. No exponer el directorio ni permisos de otros roles.
+   select ur.role_id into own_role from public.user_roles ur where ur.user_id=auth.uid();
    select jsonb_build_object(
-     'users',coalesce(jsonb_agg(jsonb_build_object('id',p.id,'name',p.full_name,'status',p.status,'role_id',ur.role_id,'branch_ids',coalesce((select jsonb_agg(ub.branch_id) from public.user_branches ub where ub.user_id=p.id),'[]'::jsonb))),'[]'::jsonb),
-     'roles',coalesce((select jsonb_agg(jsonb_build_object('id',r.id,'name',r.name,'permissions',r.permissions)) from public.roles r where r.company_id=cid),'[]'::jsonb)
+     'users',coalesce(jsonb_agg(jsonb_build_object(
+       'id',p.id,'name',p.full_name,'status',p.status,'role_id',ur.role_id,
+       'branch_ids',coalesce((select jsonb_agg(ub.branch_id) from public.user_branches ub where ub.user_id=p.id),'[]'::jsonb)
+     )),'[]'::jsonb),
+     'roles',coalesce((select jsonb_agg(jsonb_build_object('id',r.id,'name',r.name,'permissions',r.permissions))
+       from public.roles r where r.company_id=cid and r.id=own_role),'[]'::jsonb)
    ) into result
    from public.profiles p left join public.user_roles ur on ur.user_id=p.id
    where p.id=auth.uid() and p.company_id=cid;
@@ -80,7 +85,7 @@ begin
  select p_user_id,x from unnest(coalesce(p_branch_ids,array[]::uuid[])) x;
  update public.profiles set status=case when p_active then 'ACTIVE' else 'INACTIVE' end where id=p_user_id and company_id=cid;
  insert into public.audit_log(company_id,user_id,action,entity,entity_id,detail)
- values(cid,auth.uid(),'UPDATE','USER_ACCESS',p_user_id::text,jsonb_build_object('role_id',p_role_id,'branch_ids',p_branch_ids,'active',p_active));
+ values(cid,auth.uid(),'UPDATE','USER_ACCESS',p_user_id::text,jsonb_build_object('role_id',p_role_id,'branch_ids',coalesce(p_branch_ids,array[]::uuid[]),'active',p_active));
  return jsonb_build_object('id',p_user_id,'active',p_active);
 end $$;
 
