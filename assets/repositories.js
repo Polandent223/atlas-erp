@@ -29,6 +29,7 @@ export const RemoteRepo = {
   trialBalance(){return this.list("atlas_trial_balance",{order:{column:"code",ascending:true}});},
   generalLedger(){return this.list("atlas_general_ledger",{order:{column:"entry_date",ascending:false}});},
   financialSummary(){return this.rpc("atlas_financial_summary",{});},
+  financialIntegrity(){return this.rpc("atlas_financial_integrity_check",{});},
   seedChartOfAccounts(){return this.rpc("atlas_seed_chart_of_accounts",{});},
   createSale(args){return this.rpc("atlas_create_sale",args);},
   createPurchase(args){return this.rpc("atlas_create_purchase",args);},
