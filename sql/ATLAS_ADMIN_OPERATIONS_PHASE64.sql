@@ -1,16 +1,18 @@
--- ATLAS Fase 64 — Operaciones administrativas remotas
--- Cierra dos fugas de estado local: ajuste de inventario y alta de cuenta financiera.
+-- ATLAS Fase 64 / corrección F70 — Operaciones administrativas remotas
+-- Cierra fugas de estado local: ajuste de inventario y alta de cuenta financiera.
+-- F70 separa contablemente los ajustes de inventario de las diferencias de caja
+-- y elimina la dependencia del contador genérico con permisos incompatibles.
 
 insert into public.accounting_accounts(company_id,code,name,type,active)
-select c.id,'5.2.02','Ajustes de inventario','Gasto',true from public.companies c
-on conflict(company_id,code) do nothing;
+select c.id,'5.2.03','Ajustes de inventario','Gasto',true from public.companies c
+on conflict(company_id,code) do update set name=excluded.name,type=excluded.type,active=true;
 
 create or replace function public.atlas_adjust_inventory(
  p_branch_id uuid,p_product_id uuid,p_new_stock numeric,p_reason text
 ) returns jsonb
 language plpgsql security definer set search_path=public as $$
 declare
- cid uuid:=public.current_company_id(); old_stock numeric; delta numeric; cost numeric; ref text;
+ cid uuid:=public.current_company_id(); old_stock numeric; delta numeric; cost numeric; ref text; seq bigint;
 begin
  if cid is null then raise exception 'Sesión sin empresa'; end if;
  if not (public.has_permission('products.manage') or public.has_permission('*')) then raise exception 'Permiso insuficiente'; end if;
@@ -23,18 +25,29 @@ begin
  if old_stock is null then raise exception 'Inventario no encontrado'; end if;
  delta:=round(p_new_stock-old_stock,4);
  if delta=0 then return jsonb_build_object('changed',false,'stock',old_stock); end if;
+
+ -- Contador atómico propio: no depende de next_document_number(), cuya política está pensada
+ -- para ventas/compras/operaciones y podía bloquear a un usuario con products.manage.
+ insert into public.document_counters(company_id,document_type,prefix,current_value)
+ values(cid,'INVENTORY_ADJUSTMENT','AJ-',1)
+ on conflict(company_id,document_type) do update
+ set current_value=public.document_counters.current_value+1,prefix='AJ-'
+ returning current_value into seq;
+ ref:='AJ-'||lpad(seq::text,6,'0');
+
  update public.inventory set stock=p_new_stock
  where company_id=cid and branch_id=p_branch_id and product_id=p_product_id;
- ref:=public.next_document_number('INVENTORY_ADJUSTMENT','AJ-');
+
  -- Contabilidad en USD usando costo actual del producto como valoración del ajuste.
+ -- 5.2.03 queda reservado a ajustes de inventario; 5.2.02 se reserva a diferencias de caja.
  if coalesce(cost,0)>0 then
    if delta>0 then
      perform public.atlas_post_journal(cid,ref,'Ajuste de inventario: '||p_reason,jsonb_build_array(
        jsonb_build_object('account_code','1.1.03','debit',round(delta*cost,4),'credit',0),
-       jsonb_build_object('account_code','5.2.02','debit',0,'credit',round(delta*cost,4))));
+       jsonb_build_object('account_code','5.2.03','debit',0,'credit',round(delta*cost,4))));
    else
      perform public.atlas_post_journal(cid,ref,'Ajuste de inventario: '||p_reason,jsonb_build_array(
-       jsonb_build_object('account_code','5.2.02','debit',round(abs(delta)*cost,4),'credit',0),
+       jsonb_build_object('account_code','5.2.03','debit',round(abs(delta)*cost,4),'credit',0),
        jsonb_build_object('account_code','1.1.03','debit',0,'credit',round(abs(delta)*cost,4))));
    end if;
  end if;
