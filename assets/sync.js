@@ -15,12 +15,26 @@ function applyAccessSnapshot(localState,snapshot){
 }
 export async function pullCoreWorkspace(localState){
  const profile=await getRemoteProfile(); if(!profile)throw new Error("No hay perfil remoto.");
- const [branches,customers,suppliers,products,inventory,rates,paymentMethods,access]=await Promise.all([
-  RemoteRepo.list("branches",{order:{column:"name",ascending:true}}),RemoteRepo.list("customers",{order:{column:"created_at",ascending:true}}),RemoteRepo.list("suppliers",{order:{column:"created_at",ascending:true}}),RemoteRepo.list("products",{order:{column:"sku",ascending:true}}),RemoteRepo.list("inventory"),RemoteRepo.list("exchangeRates",{order:{column:"effective_at",ascending:false}}),RemoteRepo.list("paymentMethods",{order:{column:"name",ascending:true}}),RemoteRepo.accessSnapshot()
+ const [branches,customers,suppliers,products,inventory,rates,paymentMethods]=await Promise.all([
+  RemoteRepo.list("branches",{order:{column:"name",ascending:true}}),
+  RemoteRepo.list("customers",{order:{column:"created_at",ascending:true}}),
+  RemoteRepo.list("suppliers",{order:{column:"created_at",ascending:true}}),
+  RemoteRepo.list("products",{order:{column:"sku",ascending:true}}),
+  RemoteRepo.list("inventory"),
+  RemoteRepo.list("exchangeRates",{order:{column:"effective_at",ascending:false}}),
+  RemoteRepo.list("paymentMethods",{order:{column:"name",ascending:true}})
  ]);
- localState.branches=branches.map(mapBranch);localState.customers=customers.map(mapCustomer);localState.suppliers=suppliers.map(mapSupplier);localState.products=products.map(mapProduct);localState.inventory=inventory.map(mapInventory);localState.exchangeRates=rates.map(mapRate);localState.paymentMethods=paymentMethods.map(mapPaymentMethod);applyAccessSnapshot(localState,access);
- if(profile.company)localState.company={...(localState.company||{}),id:profile.company.id,name:profile.company.name||localState.company?.name,taxId:profile.company.tax_id||'',country:profile.company.country||'VE',baseCurrency:profile.company.base_currency||'USD'};
- return {profile,counts:{branches:localState.branches.length,customers:localState.customers.length,suppliers:localState.suppliers.length,products:localState.products.length,inventory:localState.inventory.length,exchangeRates:localState.exchangeRates.length,paymentMethods:localState.paymentMethods.length,users:localState.users.length,roles:localState.roles.length}};
+ localState.branches=branches.map(mapBranch);localState.customers=customers.map(mapCustomer);localState.suppliers=suppliers.map(mapSupplier);localState.products=products.map(mapProduct);localState.inventory=inventory.map(mapInventory);localState.exchangeRates=rates.map(mapRate);localState.paymentMethods=paymentMethods.map(mapPaymentMethod);
+ // Los metadatos de acceso no deben bloquear la operación diaria si el RPC de administración falla.
+ try{const access=await RemoteRepo.accessSnapshot();applyAccessSnapshot(localState,access);localState.accessSyncError=null;}
+ catch(error){localState.accessSyncError=error?.message||String(error);console.warn("ATLAS: metadatos de acceso no sincronizados",error);}
+ if(profile.company)localState.company={
+   ...(localState.company||{}),id:profile.company.id,name:profile.company.name||localState.company?.name,
+   taxId:profile.company.tax_id||'',phone:profile.company.phone||'',email:profile.company.email||'',
+   country:profile.company.country||'VE',baseCurrency:profile.company.base_currency||'USD',
+   displayCurrency:profile.company.display_currency||profile.company.base_currency||'USD'
+ };
+ return {profile,counts:{branches:localState.branches.length,customers:localState.customers.length,suppliers:localState.suppliers.length,products:localState.products.length,inventory:localState.inventory.length,exchangeRates:localState.exchangeRates.length,paymentMethods:localState.paymentMethods.length,users:(localState.users||[]).length,roles:(localState.roles||[]).length}};
 }
 function statusDoc(v,activeLabel){return v==='CANCELLED'?'Anulada':(v==='ACTIVE'?activeLabel:(v||activeLabel));}
 export async function pullTransactions(localState){
