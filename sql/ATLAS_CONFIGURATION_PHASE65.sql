@@ -1,17 +1,23 @@
--- ATLAS Fase 65 — Configuración operativa remota
+-- ATLAS Fase 65 / endurecimiento F71 — Configuración operativa remota
 -- Sucursales, métodos de pago y tasas dejan de depender del almacenamiento local.
 
 alter table public.branches add column if not exists city text;
 
--- F44 eliminó la política genérica de branches; F65 restablece lectura segura por empresa
--- y deja la escritura directa restringida. Las altas se hacen por RPC auditado.
+-- Lectura: usuarios ven sus sucursales; administradores de configuración pueden ver todas
+-- las de su empresa para gestionarlas. Escritura directa bloqueada: toda mutación va por RPC auditado.
 drop policy if exists atlas_branches_read on public.branches;
 create policy atlas_branches_read on public.branches for select to authenticated
-using(company_id=public.current_company_id() and (public.has_permission('branches.all') or public.can_access_branch(id)));
+using(
+ company_id=public.current_company_id()
+ and (
+   public.has_permission('branches.all')
+   or public.has_permission('settings.manage')
+   or public.has_permission('*')
+   or public.can_access_branch(id)
+ )
+);
 drop policy if exists atlas_branches_write on public.branches;
-create policy atlas_branches_write on public.branches for all to authenticated
-using(company_id=public.current_company_id() and (public.has_permission('settings.manage') or public.has_permission('*')))
-with check(company_id=public.current_company_id() and (public.has_permission('settings.manage') or public.has_permission('*')));
+revoke insert, update, delete on public.branches from authenticated;
 
 create or replace function public.atlas_create_branch(p_name text,p_code text default null,p_city text default null)
 returns jsonb language plpgsql security definer set search_path=public as $$
@@ -54,6 +60,7 @@ begin
  if not (public.has_permission('settings.manage') or public.has_permission('*')) then raise exception 'Permiso insuficiente'; end if;
  if cur not in ('VES','USD','EUR','USDT') then raise exception 'Moneda no soportada'; end if;
  if p_rate is null or p_rate<=0 then raise exception 'Tasa inválida'; end if;
+ if cur='USD' and abs(p_rate-1)>0.000001 then raise exception 'La tasa USD debe ser 1'; end if;
  insert into public.exchange_rates(id,company_id,currency,rate,source,effective_at)
  values(rid,cid,cur,p_rate,coalesce(nullif(btrim(p_source),''),'Manual'),coalesce(p_effective_at,now()));
  insert into public.audit_log(company_id,user_id,action,entity,entity_id,detail)
