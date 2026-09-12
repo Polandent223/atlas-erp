@@ -22,7 +22,10 @@ function modal(title,body,onSave){
 
 async function refreshAll(){
  DB.setSyncStatus('syncing');
- await Promise.all([pullCoreWorkspace(DB.getState()),pullTransactions(DB.getState()),pullAccounting(DB.getState())]);
+ const s=DB.getState();
+ const results=await Promise.allSettled([pullCoreWorkspace(s),pullTransactions(s),pullAccounting(s)]);
+ const failed=results.find(x=>x.status==='rejected');
+ if(failed){DB.setSyncStatus('error',failed.reason?.message||String(failed.reason));throw failed.reason;}
  DB.setSyncStatus('synced');
 }
 
@@ -88,19 +91,81 @@ async function saveRemoteRate(form){
  await refreshAll();
 }
 
+async function saveRemoteCompany(form){
+ const fd=new FormData(form);
+ const name=String(fd.get('name')||'').trim();
+ if(!name) throw new Error('Nombre de empresa obligatorio.');
+ await RemoteRepo.updateCompany({
+   p_name:name,
+   p_tax_id:String(fd.get('taxId')||'').trim(),
+   p_phone:String(fd.get('phone')||'').trim(),
+   p_email:String(fd.get('email')||'').trim(),
+   p_country:String(fd.get('country')||'VE').trim().toUpperCase(),
+   p_base_currency:String(fd.get('baseCurrency')||'USD').trim().toUpperCase(),
+   p_display_currency:String(fd.get('displayCurrency')||'USD').trim().toUpperCase()
+ });
+ await pullCoreWorkspace(DB.getState());
+ DB.setSyncStatus('synced');
+}
+
+async function changeRemoteMasterState(kind,id){
+ const s=DB.getState();
+ const key=kind==='branch'?'branches':'users';
+ const item=(s[key]||[]).find(x=>x.id===id);
+ if(!item) throw new Error('Registro no encontrado.');
+ const active=(item.status||'Activo')==='Inactivo';
+ if(kind==='user' && id===s.session?.userId && !active) throw new Error('No puedes desactivar tu propia sesión.');
+ if(!confirm(`¿${active?'Reactivar':'Desactivar'} este ${kind==='branch'?'registro de sucursal':'usuario'}?`)) return false;
+ await RemoteRepo.rpc('atlas_set_master_active',{p_entity:kind,p_id:id,p_active:active});
+ await pullCoreWorkspace(s);
+ DB.setSyncStatus('synced');
+ return true;
+}
+
+async function toggleRemotePaymentMethod(id){
+ const s=DB.getState();
+ const item=(s.paymentMethods||[]).find(x=>x.id===id);
+ if(!item) throw new Error('Método de pago no encontrado.');
+ await RemoteRepo.rpc('atlas_set_payment_method_active',{p_id:id,p_active:!item.active});
+ await pullCoreWorkspace(s);
+ DB.setSyncStatus('synced');
+}
+
 document.addEventListener('click',event=>{
  if(!isSupabaseConfigured()) return;
- const btn=event.target.closest?.('[data-adjust]');
- if(!btn) return;
- event.preventDefault();
- event.stopImmediatePropagation();
- openRemoteAdjustment(btn.dataset.adjust);
+ const adjust=event.target.closest?.('[data-adjust]');
+ if(adjust){event.preventDefault();event.stopImmediatePropagation();openRemoteAdjustment(adjust.dataset.adjust);return;}
+ const del=event.target.closest?.('[data-delete]');
+ if(del){
+   const [kind,id]=String(del.dataset.delete||'').split(':');
+   if(kind==='branch'||kind==='user'){
+     event.preventDefault();event.stopImmediatePropagation();
+     DB.setSyncStatus('syncing');
+     changeRemoteMasterState(kind,id).then(changed=>{if(changed)window.location.reload();}).catch(error=>{DB.setSyncStatus('error',error?.message||String(error));alert(error?.message||'No se pudo cambiar el estado');});
+     return;
+   }
+ }
+ const pm=event.target.closest?.('[data-toggle-pm]');
+ if(pm){
+   event.preventDefault();event.stopImmediatePropagation();
+   DB.setSyncStatus('syncing');
+   toggleRemotePaymentMethod(pm.dataset.togglePm).then(()=>window.location.reload()).catch(error=>{DB.setSyncStatus('error',error?.message||String(error));alert(error?.message||'No se pudo cambiar el método');});
+ }
 },true);
 
 document.addEventListener('submit',event=>{
  if(!isSupabaseConfigured()) return;
  const form=event.target;
- if(!(form instanceof HTMLFormElement)||form.id!=='modalForm') return;
+ if(!(form instanceof HTMLFormElement)) return;
+ if(form.id==='companyForm'){
+   event.preventDefault();event.stopImmediatePropagation();
+   const btn=form.querySelector('button[type="submit"],button.btn-primary');
+   if(btn){btn.disabled=true;btn.dataset.oldText=btn.textContent;btn.textContent='Guardando…';}
+   DB.setSyncStatus('syncing');
+   saveRemoteCompany(form).then(()=>{alert('Empresa actualizada en la nube.');window.location.reload();}).catch(error=>{DB.setSyncStatus('error',error?.message||String(error));alert('No se pudo actualizar la empresa: '+(error?.message||error));if(btn){btn.disabled=false;btn.textContent=btn.dataset.oldText||'Guardar';}});
+   return;
+ }
+ if(form.id!=='modalForm') return;
  const title=form.closest('.modal')?.querySelector('h3')?.textContent?.trim()||'';
  let handler=null,label='';
  if(title==='Nueva cuenta'){handler=saveRemoteCashAccount;label='la cuenta';}
