@@ -1030,7 +1030,7 @@ grant execute on function public.atlas_create_cash_account(text,text,uuid) to au
 -- ============================================================
 -- BLOQUE 10/14: sql/ATLAS_CONFIGURATION_PHASE65.sql
 -- ============================================================
--- ATLAS Fase 65 / endurecimiento F71 — Configuración operativa remota
+-- ATLAS Fase 65 / endurecimiento F74 — Configuración operativa remota
 -- Sucursales, métodos de pago y tasas dejan de depender del almacenamiento local.
 
 alter table public.branches add column if not exists city text;
@@ -1084,6 +1084,20 @@ begin
  return jsonb_build_object('id',rid,'name',btrim(p_name),'kind',k);
 end $$;
 
+create or replace function public.atlas_set_payment_method_active(p_id uuid,p_active boolean)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare cid uuid:=public.current_company_id();
+begin
+ if cid is null then raise exception 'Sesión sin empresa'; end if;
+ if not (public.has_permission('settings.manage') or public.has_permission('*')) then raise exception 'Permiso insuficiente'; end if;
+ if p_active is null then raise exception 'Estado inválido'; end if;
+ update public.payment_methods set active=p_active where id=p_id and company_id=cid;
+ if not found then raise exception 'Método de pago no encontrado'; end if;
+ insert into public.audit_log(company_id,user_id,action,entity,entity_id,detail)
+ values(cid,auth.uid(),case when p_active then 'REACTIVATE' else 'DEACTIVATE' end,'PAYMENT_METHOD',p_id::text,jsonb_build_object('active',p_active));
+ return jsonb_build_object('id',p_id,'active',p_active);
+end $$;
+
 create or replace function public.atlas_create_exchange_rate(p_currency text,p_rate numeric,p_source text default 'Manual',p_effective_at timestamptz default now())
 returns jsonb language plpgsql security definer set search_path=public as $$
 declare cid uuid:=public.current_company_id(); rid uuid:=gen_random_uuid(); cur text:=upper(btrim(coalesce(p_currency,'')));
@@ -1102,9 +1116,11 @@ end $$;
 
 revoke all on function public.atlas_create_branch(text,text,text) from public;
 revoke all on function public.atlas_create_payment_method(text,text) from public;
+revoke all on function public.atlas_set_payment_method_active(uuid,boolean) from public;
 revoke all on function public.atlas_create_exchange_rate(text,numeric,text,timestamptz) from public;
 grant execute on function public.atlas_create_branch(text,text,text) to authenticated;
 grant execute on function public.atlas_create_payment_method(text,text) to authenticated;
+grant execute on function public.atlas_set_payment_method_active(uuid,boolean) to authenticated;
 grant execute on function public.atlas_create_exchange_rate(text,numeric,text,timestamptz) to authenticated;
 
 -- ============================================================
