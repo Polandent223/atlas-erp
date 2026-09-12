@@ -1,10 +1,15 @@
--- ATLAS Fase 59 / corrección F67 — Devolución de compra segura
+-- ATLAS Fase 59 / corrección F73 — Devolución de compra segura
 -- Devolución parcial por producto: inventario + CxP/crédito proveedor + reverso contable + auditoría.
 -- No mueve caja automáticamente: cualquier reembolso exige cuenta y tasa explícitas.
 
 insert into public.accounting_accounts(company_id,code,name,type,active)
 select c.id,'1.1.05','Créditos de proveedores','Activo',true from public.companies c
 on conflict(company_id,code) do nothing;
+
+-- Conserva el valor original del crédito aunque luego se aplique parcialmente.
+alter table public.supplier_credits add column if not exists original_amount numeric(18,4);
+update public.supplier_credits set original_amount=balance where original_amount is null;
+alter table public.supplier_credits alter column original_amount set default 0;
 
 create or replace function public.atlas_return_purchase(
  p_purchase_id uuid,p_product_id uuid,p_qty numeric
@@ -45,7 +50,8 @@ begin
  credit_amount:=round(amount-ap_apply,4);
  if credit_amount>0 then
    if p.supplier_id is null then raise exception 'La devolución genera crédito pero la compra no tiene proveedor'; end if;
-   insert into public.supplier_credits(company_id,supplier_id,balance,currency,reference) values(cid,p.supplier_id,credit_amount,'USD',n);
+   insert into public.supplier_credits(company_id,supplier_id,original_amount,balance,currency,reference)
+   values(cid,p.supplier_id,credit_amount,credit_amount,'USD',n);
  end if;
  update public.purchase_returns set payload=payload||jsonb_build_object('ap_applied',ap_apply,'supplier_credit',credit_amount) where id=rid;
  perform public.atlas_post_journal(cid,n,'Devolución de compra',jsonb_build_array(
