@@ -392,7 +392,7 @@ grant execute on function public.atlas_create_expense(uuid,text,text,numeric,tex
 -- ============================================================
 -- BLOQUE 4/14: sql/ATLAS_RETURNS_PHASE58.sql
 -- ============================================================
--- ATLAS Fase 58 / corrección F67 — Devolución de venta segura
+-- ATLAS Fase 58 / corrección F73 — Devolución de venta segura
 -- Reemplaza la implementación legacy incompatible con sale_returns F44.
 -- Devolución parcial por producto, reintegro de inventario, ajuste CxC/crédito cliente,
 -- reverso contable y auditoría. No realiza reembolso de caja automático.
@@ -400,6 +400,11 @@ grant execute on function public.atlas_create_expense(uuid,text,text,numeric,tex
 insert into public.accounting_accounts(company_id,code,name,type,active)
 select c.id,'2.1.03','Créditos de clientes','Pasivo',true from public.companies c
 on conflict(company_id,code) do nothing;
+
+-- Conserva el valor original del crédito aunque luego se aplique parcialmente.
+alter table public.customer_credits add column if not exists original_amount numeric(18,4);
+update public.customer_credits set original_amount=balance where original_amount is null;
+alter table public.customer_credits alter column original_amount set default 0;
 
 create or replace function public.atlas_return_sale(
  p_sale_id uuid,p_product_id uuid,p_qty numeric
@@ -441,7 +446,8 @@ begin
  credit_amount:=round(amount-ar_apply,4);
  if credit_amount>0 then
    if s.customer_id is null then raise exception 'La devolución genera crédito pero la venta no tiene cliente'; end if;
-   insert into public.customer_credits(company_id,customer_id,balance,currency,reference) values(cid,s.customer_id,credit_amount,'USD',n);
+   insert into public.customer_credits(company_id,customer_id,original_amount,balance,currency,reference)
+   values(cid,s.customer_id,credit_amount,credit_amount,'USD',n);
  end if;
  update public.sale_returns set payload=payload||jsonb_build_object('ar_applied',ar_apply,'customer_credit',credit_amount) where id=rid;
  perform public.atlas_post_journal(cid,n,'Devolución de venta',jsonb_build_array(
