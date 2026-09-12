@@ -1416,7 +1416,7 @@ grant execute on function public.atlas_apply_supplier_credit(uuid,uuid,numeric) 
 -- ============================================================
 -- BLOQUE 13/14: sql/ATLAS_FX_CASH_HARDENING_PHASE69.sql
 -- ============================================================
--- ATLAS Fase 69 / corrección F72 — Endurecimiento FX de caja y gastos multimoneda
+-- ATLAS Fase 69 / corrección F73 — Endurecimiento FX de caja y gastos multimoneda
 -- Contrato monetario: rate = unidades de la moneda de la cuenta por 1 USD.
 
 alter table public.expenses add column if not exists base_amount_usd numeric(18,6);
@@ -1458,7 +1458,7 @@ begin
  return jsonb_build_object('id',eid,'reference',ref,'cash_amount',p_cash_amount,'currency',a.currency,'base_amount_usd',p_base_amount_usd,'rate',p_rate);
 end $$;
 
--- Reemplaza la transferencia F68 añadiendo validación de coherencia FX en servidor.
+-- Transferencia con coherencia FX y bloqueo determinista para evitar deadlocks en transferencias opuestas concurrentes.
 create or replace function public.atlas_cash_transfer(
  p_from_account uuid,p_to_account uuid,
  p_from_amount numeric,p_to_amount numeric,p_base_amount_usd numeric,
@@ -1474,9 +1474,15 @@ begin
  if p_from_account=p_to_account then raise exception 'Las cuentas deben ser diferentes'; end if;
  if p_from_amount is null or p_from_amount<=0 or p_to_amount is null or p_to_amount<=0 or p_base_amount_usd is null or p_base_amount_usd<=0 then raise exception 'Monto inválido'; end if;
  if p_from_rate is null or p_from_rate<=0 or p_to_rate is null or p_to_rate<=0 then raise exception 'Tasa inválida'; end if;
- select * into fa from public.cash_accounts where id=p_from_account and company_id=cid and active=true for update;
- select * into ta from public.cash_accounts where id=p_to_account and company_id=cid and active=true for update;
+
+ -- Bloquea ambas cuentas siempre en el mismo orden de UUID, independientemente de origen/destino.
+ perform id from public.cash_accounts
+ where company_id=cid and active=true and id in (p_from_account,p_to_account)
+ order by id for update;
+ select * into fa from public.cash_accounts where id=p_from_account and company_id=cid and active=true;
+ select * into ta from public.cash_accounts where id=p_to_account and company_id=cid and active=true;
  if fa.id is null or ta.id is null then raise exception 'Cuenta inválida'; end if;
+
  if fa.branch_id is not null and not public.can_access_branch(fa.branch_id) then raise exception 'Sucursal origen no autorizada'; end if;
  if ta.branch_id is not null and not public.can_access_branch(ta.branch_id) then raise exception 'Sucursal destino no autorizada'; end if;
  if upper(fa.currency)='USD' and abs(p_from_rate-1)>0.000001 then raise exception 'Tasa USD origen debe ser 1'; end if;
