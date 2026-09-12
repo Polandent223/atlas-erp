@@ -1,0 +1,43 @@
+name: Build ATLAS consolidated installer
+
+on:
+  push:
+    branches: [atlas-f55-review]
+    paths:
+      - 'sql/ATLAS_*PHASE*.sql'
+      - 'scripts/build-atlas-installer.mjs'
+      - '.github/workflows/build-atlas-installer.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip installer]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: atlas-f55-review
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate installer
+        run: node scripts/build-atlas-installer.mjs
+      - name: Verify generated SQL exists
+        run: |
+          test -s sql/ATLAS_INSTALLER_F55_F73.sql
+          grep -q "begin;" sql/ATLAS_INSTALLER_F55_F73.sql
+          grep -q "commit;" sql/ATLAS_INSTALLER_F55_F73.sql
+          grep -q "atlas_financial_integrity_check" sql/ATLAS_INSTALLER_F55_F73.sql
+      - name: Commit generated installer
+        run: |
+          if git diff --quiet -- sql/ATLAS_INSTALLER_F55_F73.sql && git ls-files --error-unmatch sql/ATLAS_INSTALLER_F55_F73.sql >/dev/null 2>&1; then
+            echo "Installer already up to date."
+            exit 0
+          fi
+          git config user.name "atlas-build-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add sql/ATLAS_INSTALLER_F55_F73.sql
+          git commit -m "F73: generate consolidated SQL installer [skip installer]"
+          git push origin HEAD:atlas-f55-review
