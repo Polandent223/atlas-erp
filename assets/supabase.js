@@ -41,14 +41,20 @@ export async function getRemoteProfile(){
   const [{data:ur,error:urError},{data:ubs,error:ubError},{data:company,error:companyError}]=await Promise.all([
     supabase.from("user_roles").select("role_id").eq("user_id",user.id).maybeSingle(),
     supabase.from("user_branches").select("branch_id").eq("user_id",user.id),
-    supabase.from("companies").select("id,name,tax_id,country,base_currency").eq("id",profile.company_id).single()
+    supabase.from("companies").select("id,name,tax_id,phone,email,country,base_currency,display_currency").eq("id",profile.company_id).single()
   ]);
   if(urError) throw urError; if(ubError) throw ubError; if(companyError) throw companyError;
   let role=null;
-  if(ur?.role_id){ const {data,error:roleError}=await supabase.from("roles").select("id,name,permissions").eq("id",ur.role_id).single(); if(roleError) throw roleError; role=data; }
+  if(ur?.role_id){
+    const {data,error:roleError}=await supabase.from("roles").select("id,name,permissions").eq("id",ur.role_id).single();
+    if(roleError) throw roleError; role=data;
+  }
   const branchIds=(ubs||[]).map(x=>x.branch_id);
   let branches=[];
-  if(branchIds.length){ const {data,error:branchError}=await supabase.from("branches").select("id,name,code,active").in("id",branchIds); if(branchError) throw branchError; branches=data||[]; }
+  if(branchIds.length){
+    const {data,error:branchError}=await supabase.from("branches").select("id,name,code,city,active").in("id",branchIds);
+    if(branchError) throw branchError; branches=data||[];
+  }
   return {...profile,email:user.email,role_id:ur?.role_id||null,role,branch_id:branchIds[0]||"all",branch_ids:branchIds,branches,company};
 }
 
