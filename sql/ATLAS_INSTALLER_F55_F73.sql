@@ -819,8 +819,8 @@ grant execute on function public.atlas_pay_payable(uuid,numeric,uuid) to authent
 -- ============================================================
 -- BLOQUE 8/14: sql/ATLAS_MASTER_DATA_PHASE62.sql
 -- ============================================================
--- ATLAS Fase 62 — Maestros remotos coherentes con la UI
--- Añade los campos que la interfaz ya maneja y centraliza altas/ediciones en RPCs seguros.
+-- ATLAS Fase 62 / corrección F74 — Maestros remotos coherentes con la UI
+-- Añade los campos que la interfaz ya maneja y centraliza altas/ediciones/estado en RPCs seguros.
 
 alter table public.customers add column if not exists code text;
 alter table public.suppliers add column if not exists code text;
@@ -899,10 +899,45 @@ begin
  return jsonb_build_object('id',p_id,'entity',e);
 end $$;
 
+-- La UI usa este RPC para desactivar/reactivar sin borrar historial.
+create or replace function public.atlas_set_master_active(p_entity text,p_id uuid,p_active boolean)
+returns jsonb language plpgsql security definer set search_path=public as $$
+declare cid uuid:=public.current_company_id(); e text:=lower(trim(p_entity));
+begin
+ if cid is null then raise exception 'Sesión sin empresa'; end if;
+ if p_active is null then raise exception 'Estado inválido'; end if;
+ if e='customer' then
+   if not (public.has_permission('customers.manage') or public.has_permission('*')) then raise exception 'Permiso insuficiente'; end if;
+   update public.customers set active=p_active where id=p_id and company_id=cid;
+ elsif e='supplier' then
+   if not (public.has_permission('suppliers.manage') or public.has_permission('*')) then raise exception 'Permiso insuficiente'; end if;
+   update public.suppliers set active=p_active where id=p_id and company_id=cid;
+ elsif e='product' then
+   if not (public.has_permission('products.manage') or public.has_permission('*')) then raise exception 'Permiso insuficiente'; end if;
+   update public.products set active=p_active where id=p_id and company_id=cid;
+ elsif e='branch' then
+   if not (public.has_permission('settings.manage') or public.has_permission('*')) then raise exception 'Permiso insuficiente'; end if;
+   if not p_active and (select count(*) from public.branches where company_id=cid and active=true)<=1 then raise exception 'No puedes desactivar la última sucursal activa'; end if;
+   update public.branches set active=p_active where id=p_id and company_id=cid;
+ elsif e='user' then
+   if not (public.has_permission('settings.manage') or public.has_permission('*')) then raise exception 'Permiso insuficiente'; end if;
+   if p_id=auth.uid() and not p_active then raise exception 'No puedes desactivar tu propia sesión'; end if;
+   update public.profiles set status=case when p_active then 'ACTIVE' else 'INACTIVE' end where id=p_id and company_id=cid;
+ else
+   raise exception 'Entidad no permitida';
+ end if;
+ if not found then raise exception 'Registro no encontrado'; end if;
+ insert into public.audit_log(company_id,user_id,action,entity,entity_id,detail)
+ values(cid,auth.uid(),case when p_active then 'REACTIVATE' else 'DEACTIVATE' end,upper(e),p_id::text,jsonb_build_object('active',p_active));
+ return jsonb_build_object('id',p_id,'entity',e,'active',p_active);
+end $$;
+
 revoke all on function public.atlas_create_master(text,jsonb) from public;
 revoke all on function public.atlas_update_master(text,uuid,jsonb) from public;
+revoke all on function public.atlas_set_master_active(text,uuid,boolean) from public;
 grant execute on function public.atlas_create_master(text,jsonb) to authenticated;
 grant execute on function public.atlas_update_master(text,uuid,jsonb) to authenticated;
+grant execute on function public.atlas_set_master_active(text,uuid,boolean) to authenticated;
 
 -- ============================================================
 -- BLOQUE 9/14: sql/ATLAS_ADMIN_OPERATIONS_PHASE64.sql
