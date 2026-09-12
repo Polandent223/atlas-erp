@@ -1,4 +1,4 @@
--- ATLAS Fase 69 — Endurecimiento FX de caja y gastos multimoneda
+-- ATLAS Fase 69 / corrección F72 — Endurecimiento FX de caja y gastos multimoneda
 -- Contrato monetario: rate = unidades de la moneda de la cuenta por 1 USD.
 
 alter table public.expenses add column if not exists base_amount_usd numeric(18,6);
@@ -25,7 +25,7 @@ begin
  expected:=case when upper(a.currency)='USD' then p_base_amount_usd else p_base_amount_usd*p_rate end;
  if abs(expected-p_cash_amount)>greatest(0.01,abs(p_cash_amount)*0.0005) then raise exception 'Monto/tasa inconsistentes'; end if;
  if upper(a.currency)='USD' and abs(p_rate-1)>0.000001 then raise exception 'La tasa USD debe ser 1'; end if;
- ref:=coalesce(nullif(btrim(p_reference),''),public.next_document_number('EXPENSE','G-'));
+ ref:=coalesce(nullif(btrim(p_reference),''),public.atlas_internal_document_number('EXPENSE','G-'));
  insert into public.expenses(id,company_id,branch_id,cash_account_id,category,description,amount,currency,base_amount_usd,exchange_rate,reference,created_by)
  values(eid,cid,a.branch_id,a.id,coalesce(nullif(btrim(p_category),''),'General'),btrim(p_description),p_cash_amount,upper(a.currency),p_base_amount_usd,p_rate,ref,auth.uid());
  update public.cash_accounts set balance=balance-p_cash_amount where id=a.id;
@@ -68,7 +68,7 @@ begin
  if abs(expected_from-p_from_amount)>greatest(0.01,abs(p_from_amount)*0.0005) then raise exception 'Monto origen/tasa inconsistentes'; end if;
  if abs(expected_to-p_to_amount)>greatest(0.01,abs(p_to_amount)*0.0005) then raise exception 'Monto destino/tasa inconsistentes'; end if;
  if fa.balance<p_from_amount then raise exception 'Saldo insuficiente'; end if;
- ref:=coalesce(nullif(btrim(p_reference),''),public.next_document_number('CASH_TRANSFER','TF-'));
+ ref:=coalesce(nullif(btrim(p_reference),''),public.atlas_internal_document_number('CASH_TRANSFER','TF-'));
  update public.cash_accounts set balance=balance-p_from_amount where id=fa.id;
  update public.cash_accounts set balance=balance+p_to_amount where id=ta.id;
  insert into public.cash_movements(company_id,account_id,direction,amount,currency,reference,description,created_by)
