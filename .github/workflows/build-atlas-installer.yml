@@ -15,6 +15,26 @@ jobs:
   build:
     if: ${{ !contains(github.event.head_commit.message, '[skip installer]') }}
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: atlas_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d atlas_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: atlas_ci
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,6 +50,24 @@ jobs:
           grep -q "begin;" sql/ATLAS_INSTALLER_F55_F73.sql
           grep -q "commit;" sql/ATLAS_INSTALLER_F55_F73.sql
           grep -q "atlas_financial_integrity_check" sql/ATLAS_INSTALLER_F55_F73.sql
+      - name: Prepare minimal Supabase auth stubs
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          do $$ begin
+            if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
+            if not exists(select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
+            if not exists(select 1 from pg_roles where rolname='service_role') then create role service_role nologin; end if;
+          end $$;
+          create schema if not exists auth;
+          create table if not exists auth.users(id uuid primary key, email text);
+          create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
+          SQL
+      - name: Validate F32 + F44 + consolidated installer in PostgreSQL
+        run: |
+          psql -v ON_ERROR_STOP=1 -f sql/ATLAS_PRODUCTION_PHASE32.sql
+          psql -v ON_ERROR_STOP=1 -f sql/ATLAS_SECURITY_HARDENING_PHASE44.sql
+          psql -v ON_ERROR_STOP=1 -f sql/ATLAS_INSTALLER_F55_F73.sql
+          psql -v ON_ERROR_STOP=1 -Atc "select case when to_regprocedure('public.atlas_financial_integrity_check()') is not null then 'ATLAS_SQL_OK' else 'MISSING' end" | grep -q ATLAS_SQL_OK
       - name: Commit generated installer
         run: |
           if git diff --quiet -- sql/ATLAS_INSTALLER_F55_F73.sql && git ls-files --error-unmatch sql/ATLAS_INSTALLER_F55_F73.sql >/dev/null 2>&1; then
