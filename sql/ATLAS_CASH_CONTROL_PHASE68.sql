@@ -1,4 +1,4 @@
--- ATLAS Fase 68 — Caja, conciliación y aplicación de créditos
+-- ATLAS Fase 68 / corrección F72 — Caja, conciliación y aplicación de créditos
 -- Operaciones monetarias remotas, atómicas y auditables.
 
 create table if not exists public.cash_transfers(
@@ -32,13 +32,29 @@ alter table public.cash_transfers enable row level security;
 drop policy if exists atlas_cash_transfers_read on public.cash_transfers;
 create policy atlas_cash_transfers_read on public.cash_transfers for select to authenticated
 using(company_id=public.current_company_id());
--- Escritura sólo por RPC security definer.
 revoke insert, update, delete on public.cash_transfers from authenticated;
 
--- Cuenta para diferencias de caja.
 insert into public.accounting_accounts(company_id,code,name,type,active)
 select c.id,'5.2.02','Ajustes y diferencias de caja','Gasto',true from public.companies c
 on conflict(company_id,code) do nothing;
+
+-- F72: contador interno sin depender de permisos de ventas/compras.
+-- No se concede EXECUTE al rol authenticated; sólo lo invocan RPC security definer autorizados.
+create or replace function public.atlas_internal_document_number(p_type text,p_prefix text default '')
+returns text language plpgsql security definer set search_path=public as $$
+declare cid uuid:=public.current_company_id(); n bigint;
+begin
+ if cid is null then raise exception 'Sesión sin empresa'; end if;
+ insert into public.document_counters(company_id,document_type,prefix,current_value)
+ values(cid,upper(trim(p_type)),coalesce(p_prefix,''),1)
+ on conflict(company_id,document_type) do update
+ set current_value=public.document_counters.current_value+1,
+     prefix=excluded.prefix
+ returning current_value into n;
+ return coalesce(p_prefix,'')||lpad(n::text,5,'0');
+end $$;
+revoke all on function public.atlas_internal_document_number(text,text) from public;
+revoke execute on function public.atlas_internal_document_number(text,text) from authenticated;
 
 create or replace function public.atlas_cash_transfer(
  p_from_account uuid,p_to_account uuid,
@@ -61,7 +77,7 @@ begin
  if fa.branch_id is not null and not public.can_access_branch(fa.branch_id) then raise exception 'Sucursal origen no autorizada'; end if;
  if ta.branch_id is not null and not public.can_access_branch(ta.branch_id) then raise exception 'Sucursal destino no autorizada'; end if;
  if fa.balance<p_from_amount then raise exception 'Saldo insuficiente'; end if;
- ref:=coalesce(nullif(btrim(p_reference),''),public.next_document_number('CASH_TRANSFER','TF-'));
+ ref:=coalesce(nullif(btrim(p_reference),''),public.atlas_internal_document_number('CASH_TRANSFER','TF-'));
  update public.cash_accounts set balance=balance-p_from_amount where id=fa.id;
  update public.cash_accounts set balance=balance+p_to_amount where id=ta.id;
  insert into public.cash_movements(company_id,account_id,direction,amount,currency,reference,description,created_by)
@@ -70,7 +86,6 @@ begin
  (cid,ta.id,'IN',p_to_amount,ta.currency,ref,coalesce(nullif(btrim(p_note),''),'Transferencia entre cuentas'),auth.uid());
  insert into public.cash_transfers(id,company_id,from_account_id,to_account_id,reference,from_amount,from_currency,to_amount,to_currency,base_amount_usd,from_rate,to_rate,note,created_by)
  values(tid,cid,fa.id,ta.id,ref,p_from_amount,fa.currency,p_to_amount,ta.currency,p_base_amount_usd,p_from_rate,p_to_rate,p_note,auth.uid());
- -- Transferencias internas no generan ingreso/gasto; el mayor de Caja y bancos conserva el mismo valor base.
  insert into public.audit_log(company_id,user_id,action,entity,entity_id,detail)
  values(cid,auth.uid(),'CREATE','CASH_TRANSFER',tid::text,jsonb_build_object('reference',ref,'from_account',fa.id,'to_account',ta.id,'from_amount',p_from_amount,'from_currency',fa.currency,'to_amount',p_to_amount,'to_currency',ta.currency,'base_usd',p_base_amount_usd,'from_rate',p_from_rate,'to_rate',p_to_rate));
  return jsonb_build_object('id',tid,'reference',ref);
@@ -88,7 +103,7 @@ begin
  select * into a from public.cash_accounts where id=p_cash_account and company_id=cid and active=true for update;
  if a.id is null then raise exception 'Cuenta inválida'; end if;
  if a.branch_id is not null and not public.can_access_branch(a.branch_id) then raise exception 'Sucursal no autorizada'; end if;
- diff:=round(p_counted-a.balance,6); ref:=public.next_document_number('CASH_CLOSING','CJ-');
+ diff:=round(p_counted-a.balance,6); ref:=public.atlas_internal_document_number('CASH_CLOSING','CJ-');
  insert into public.cash_closings(id,company_id,branch_id,cash_account_id,expected,counted,difference,created_by,reference,currency,note,status)
  values(rid,cid,a.branch_id,a.id,a.balance,p_counted,diff,auth.uid(),ref,a.currency,p_note,case when abs(diff)<0.0001 then 'BALANCED' else 'DIFFERENCE' end);
  insert into public.audit_log(company_id,user_id,action,entity,entity_id,detail)
@@ -146,7 +161,7 @@ begin
  amt:=least(p_amount,c.balance,r.balance); if amt<=0 then raise exception 'No hay saldo aplicable'; end if;
  update public.customer_credits set balance=balance-amt where id=c.id;
  update public.receivables set balance=balance-amt,status=case when balance-amt<=0.0001 then 'PAID' else 'OPEN' end where id=r.id;
- ref:=public.next_document_number('CUSTOMER_CREDIT_APPLY','NC-');
+ ref:=public.atlas_internal_document_number('CUSTOMER_CREDIT_APPLY','NC-');
  perform public.atlas_post_journal(cid,ref,'Aplicación de crédito de cliente',jsonb_build_array(
   jsonb_build_object('account_code','2.1.03','debit',amt,'credit',0),jsonb_build_object('account_code','1.1.02','debit',0,'credit',amt)));
  insert into public.audit_log(company_id,user_id,action,entity,entity_id,detail) values(cid,auth.uid(),'APPLY','CUSTOMER_CREDIT',c.id::text,jsonb_build_object('reference',ref,'receivable',r.id,'amount',amt));
@@ -168,7 +183,7 @@ begin
  amt:=least(p_amount,c.balance,r.balance); if amt<=0 then raise exception 'No hay saldo aplicable'; end if;
  update public.supplier_credits set balance=balance-amt where id=c.id;
  update public.payables set balance=balance-amt,status=case when balance-amt<=0.0001 then 'PAID' else 'OPEN' end where id=r.id;
- ref:=public.next_document_number('SUPPLIER_CREDIT_APPLY','CP-');
+ ref:=public.atlas_internal_document_number('SUPPLIER_CREDIT_APPLY','CP-');
  perform public.atlas_post_journal(cid,ref,'Aplicación de crédito de proveedor',jsonb_build_array(
   jsonb_build_object('account_code','2.1.01','debit',amt,'credit',0),jsonb_build_object('account_code','1.1.05','debit',0,'credit',amt)));
  insert into public.audit_log(company_id,user_id,action,entity,entity_id,detail) values(cid,auth.uid(),'APPLY','SUPPLIER_CREDIT',c.id::text,jsonb_build_object('reference',ref,'payable',r.id,'amount',amt));
