@@ -2,7 +2,7 @@
 
 ATLAS no se considera listo para uso real hasta cerrar esta puerta y completar la prueba integral contra Supabase.
 
-## Bloques cerrados en la rama F55–F73
+## Bloques cerrados en la rama F55–F74
 - Contabilidad atómica para venta, compra, cobro CxC y pago CxP.
 - Validación de asiento balanceado, cuentas activas, empresa y sucursal.
 - Contrato monetario USD de referencia con snapshots FX explícitos.
@@ -21,16 +21,19 @@ ATLAS no se considera listo para uso real hasta cerrar esta puerta y completar l
 - Instalador consolidado `ATLAS_INSTALLER_F55_F73.sql` generado automáticamente en orden de dependencias.
 - Preflight + verificación estructural final dentro de una sola transacción SQL.
 - Validación automática exitosa en PostgreSQL 16 ejecutando F32 + F44 + instalador consolidado completo.
-- Service Worker actualizado a caché `atlas-v73` e incluye los módulos remotos actuales.
+- Datos de empresa guardados remotamente en Supabase desde la interfaz.
+- Activación/desactivación remota y auditada de sucursales, usuarios existentes, clientes, proveedores, productos y métodos de pago.
+- Service Worker actualizado a caché `atlas-v74` e incluye todos los módulos remotos actuales.
 
 ## Bloqueos todavía abiertos antes de producción
 - Ejecutar el instalador consolidado una sola vez en el proyecto real de Supabase y guardar el resultado.
 - Ejecutar diagnóstico financiero/estructural después de instalar y corregir cualquier hallazgo real.
 - Probar en nube los flujos críticos de punta a punta: venta contado/crédito, cobro, compra contado/crédito, pago, devoluciones, anulaciones, inventario, caja, gastos, transferencias y conciliación.
-- Verificar edición remota de maestros/configuración y estados activo/inactivo donde aplique.
+- Validar en nube edición/estado de empresa, maestros, sucursales, usuarios existentes y métodos de pago.
+- Completar la edición remota visible de maestros y roles donde la interfaz aún no ofrece acción directa.
 - Revisar alta segura de nuevos usuarios Auth; no se habilitará mediante `service_role` en el frontend.
-- Revisar reportes/documentos impresos después de los cambios contables y multimoneda.
-- Revisión final del PR y comparación completa `main` ↔ `atlas-f55-review`.
+- Revisar reportes/documentos impresos con datos reales después de los cambios contables y multimoneda.
+- Revisión final del PR y comparación completa `main` ↔ `atlas-f55-review` después de la prueba real.
 
 ## Regla de salida
 No fusionar esta rama a `main` mientras exista un bloqueo crítico abierto. La rama `atlas-backup-pre-f55` permanece intacta como respaldo. El rediseño visual final se hará después del cierre funcional y de la prueba real en nube.
