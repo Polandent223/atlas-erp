@@ -5,7 +5,18 @@ let client = null;
 export async function getSupabase(){
   if(!isSupabaseConfigured()) return null;
   if(client) return client;
-  const mod = await import("https://esm.sh/@supabase/supabase-js@2");
+  let mod;
+  try{
+    mod = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
+  }catch(primaryError){
+    try{
+      mod = await import("https://esm.sh/@supabase/supabase-js@2");
+    }catch(fallbackError){
+      const err = new Error("No se pudo cargar el conector de Supabase. Revisa Internet, DNS o bloqueo del navegador y vuelve a intentar.");
+      err.cause = fallbackError || primaryError;
+      throw err;
+    }
+  }
   client = mod.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
     auth: {persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}
   });
@@ -17,9 +28,17 @@ export async function getSupabase(){
 export async function remoteLogin(email,password){
   const supabase = await getSupabase();
   if(!supabase) throw new Error("Supabase no está configurado.");
-  const {data,error}=await supabase.auth.signInWithPassword({email,password});
-  if(error) throw error;
-  return data;
+  try{
+    const {data,error}=await supabase.auth.signInWithPassword({email,password});
+    if(error) throw error;
+    return data;
+  }catch(error){
+    const raw=String(error?.message||error||"");
+    if(/failed to fetch|fetch failed|networkerror|network request failed/i.test(raw)){
+      throw new Error("ATLAS no pudo comunicarse con Supabase. Comprueba Internet o bloqueo de red y vuelve a intentar.");
+    }
+    throw error;
+  }
 }
 
 export async function remoteLogout(){
