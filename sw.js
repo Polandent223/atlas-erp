@@ -1,4 +1,4 @@
-const CACHE="atlas-v74";
+const CACHE="atlas-v75";
 const ASSETS=["./","./index.html","./manifest.webmanifest","./assets/app.css","./assets/app.js","./assets/cloud-mode.js","./assets/release-readiness.js","./assets/workflow-audit.js","./assets/integral-audit.js","./assets/migration-mapper.js","./assets/cloud-import-executor.js","./assets/cloud-auth.js","./assets/cloud-import.js","./assets/migration.js","./assets/data.js","./assets/config.js","./assets/supabase.js","./assets/repositories.js","./assets/sync.js","./assets/remote-masters-ui.js","./assets/remote-admin-ui.js","./assets/remote-operations-ui.js","./assets/remote-cash-ui.js"];
 self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)))});
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
