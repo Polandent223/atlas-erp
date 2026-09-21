@@ -578,6 +578,12 @@ begin
  if ar.id is not null and ar.balance < ar.total-0.0001 then
    raise exception 'La venta a crédito ya tiene cobros aplicados. Usa devolución para conservar la trazabilidad';
  end if;
+ if ar.id is not null and exists(
+   select 1 from public.cash_movements
+   where company_id=cid and reference=s.number and direction='IN'
+ ) then
+   raise exception 'Venta inconsistente: tiene CxC abierta y cobro directo. Requiere revisión antes de anular';
+ end if;
  for li in select * from public.sale_items where sale_id=s.id loop
    insert into public.inventory(company_id,branch_id,product_id,stock,reserved)
    values(cid,s.branch_id,li.product_id,li.qty,0)
@@ -614,6 +620,12 @@ begin
  select * into ap from public.payables where company_id=cid and purchase_id=p.id order by total desc limit 1 for update;
  if ap.id is not null and ap.balance < ap.total-0.0001 then
    raise exception 'La compra a crédito ya tiene pagos aplicados. Usa devolución para conservar la trazabilidad';
+ end if;
+ if ap.id is not null and exists(
+   select 1 from public.cash_movements
+   where company_id=cid and reference=p.number and direction='OUT'
+ ) then
+   raise exception 'Compra inconsistente: tiene CxP abierta y pago directo. Requiere revisión antes de anular';
  end if;
  for li in select * from public.purchase_items where purchase_id=p.id loop
    select stock-reserved into available from public.inventory where company_id=cid and branch_id=p.branch_id and product_id=li.product_id for update;
