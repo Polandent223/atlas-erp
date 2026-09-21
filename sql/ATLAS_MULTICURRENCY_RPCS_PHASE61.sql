@@ -17,10 +17,13 @@ begin
  if p_subtotal<0 or p_tax<0 or p_total<0 or p_paid<0 or p_paid>p_total or p_exchange_rate<=0 then raise exception 'Totales inválidos'; end if;
  if abs((p_subtotal+p_tax)-p_total)>0.02 then raise exception 'Total inconsistente'; end if;
  if jsonb_typeof(p_items)<>'array' or jsonb_array_length(p_items)=0 then raise exception 'Venta sin productos'; end if;
+ if upper(coalesce(p_currency,'USD'))='USD' and abs(p_exchange_rate-1)>0.000001 then raise exception 'La tasa USD debe ser 1'; end if;
+ if upper(coalesce(p_currency,'USD'))<>'USD' and p_exchange_rate<=0 then raise exception 'Tasa documental inválida'; end if;
  if p_customer is not null and not exists(select 1 from public.customers where id=p_customer and company_id=cid and active=true) then raise exception 'Cliente inválido'; end if;
  if p_paid>0 then
    select currency into cash_cur from public.cash_accounts where id=p_cash_account and company_id=cid and active=true for update;
    if cash_cur is null then raise exception 'Cuenta de caja inválida'; end if;
+   if upper(cash_cur)='USD' and upper(coalesce(p_currency,'USD'))='USD' and abs(p_exchange_rate-1)>0.000001 then raise exception 'La tasa USD debe ser 1'; end if;
    cash_amount:=public.atlas_fx_amount(p_paid,cash_cur,p_currency,p_exchange_rate);
  end if;
  n:=public.next_document_number('SALE',p_prefix);
@@ -76,6 +79,9 @@ begin
  if p_subtotal<0 or p_tax<0 or p_total<0 or p_paid<0 or p_paid>p_total or p_exchange_rate<=0 then raise exception 'Totales inválidos'; end if;
  if abs((p_subtotal+p_tax)-p_total)>0.02 then raise exception 'Total inconsistente'; end if;
  if jsonb_typeof(p_items)<>'array' or jsonb_array_length(p_items)=0 then raise exception 'Compra sin productos'; end if;
+ if upper(coalesce(p_currency,'USD'))='USD' and abs(p_exchange_rate-1)>0.000001 then raise exception 'La tasa USD debe ser 1'; end if;
+ if upper(coalesce(p_currency,'USD'))<>'USD' and p_exchange_rate<=0 then raise exception 'Tasa documental inválida'; end if;
+ if p_supplier is not null and not exists(select 1 from public.suppliers where id=p_supplier and company_id=cid and active=true) then raise exception 'Proveedor inválido'; end if;
  if p_paid>0 then
    select currency,balance into cash_cur,bal from public.cash_accounts where id=p_cash_account and company_id=cid and active=true for update;
    if cash_cur is null then raise exception 'Cuenta de caja inválida'; end if;
