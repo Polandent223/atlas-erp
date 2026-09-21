@@ -4,10 +4,22 @@ import { DB } from './data.js';
 import { pullCoreWorkspace, pullTransactions, pullAccounting } from './sync.js';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-async function refreshAll(){DB.setSyncStatus('syncing');await Promise.all([pullCoreWorkspace(DB.getState()),pullTransactions(DB.getState()),pullAccounting(DB.getState())]);DB.setSyncStatus('synced');DB.save();}
+async function refreshAll(){
+ DB.setSyncStatus('syncing');
+ const results=await Promise.allSettled([pullCoreWorkspace(DB.getState()),pullTransactions(DB.getState()),pullAccounting(DB.getState())]);
+ const failed=results.filter(r=>r.status==='rejected');
+ DB.save();
+ if(failed.length){
+  const detail=failed.map(r=>r.reason?.message||String(r.reason)).join(' · ');
+  DB.setSyncStatus('error',detail);
+  return {ok:false,detail};
+ }
+ DB.setSyncStatus('synced');
+ return {ok:true};
+}
 function modal(title,body,onSave){
  const bg=document.createElement('div');bg.className='modal-bg';bg.innerHTML=`<div class="modal"><h3>${esc(title)}</h3><form id="atlasRemoteOperationForm">${body}<div class="modal-actions"><button type="button" class="btn btn-soft" data-cancel>Cancelar</button><button class="btn btn-primary">Confirmar</button></div></form></div>`;document.body.appendChild(bg);
- bg.querySelector('[data-cancel]').onclick=()=>bg.remove();bg.querySelector('form').onsubmit=async e=>{e.preventDefault();const btn=e.submitter||bg.querySelector('.btn-primary');if(btn){btn.disabled=true;btn.textContent='Procesando…';}try{const result=await onSave(new FormData(e.target));bg.remove();await refreshAll();alert(result||'Operación registrada correctamente.');window.location.reload();}catch(error){DB.setSyncStatus('error',error?.message||String(error));if(btn){btn.disabled=false;btn.textContent='Confirmar';}alert(error?.message||'No se pudo completar la operación');}};return bg;
+ bg.querySelector('[data-cancel]').onclick=()=>bg.remove();bg.querySelector('form').onsubmit=async e=>{e.preventDefault();const btn=e.submitter||bg.querySelector('.btn-primary');if(btn){btn.disabled=true;btn.textContent='Procesando…';}try{const result=await onSave(new FormData(e.target));bg.remove();const refresh=await refreshAll();if(!refresh.ok){alert((result||'Operación registrada correctamente.')+'\n\nLa operación YA fue guardada en la nube, pero ATLAS no pudo refrescar todos los datos. Recarga la página; no repitas la operación.');return;}alert(result||'Operación registrada correctamente.');window.location.reload();}catch(error){DB.setSyncStatus('error',error?.message||String(error));if(btn){btn.disabled=false;btn.textContent='Confirmar';}alert(error?.message||'No se pudo completar la operación');}};return bg;
 }
 function productSelectFor(doc){const s=DB.getState();return (doc?.items||[]).map(i=>`<option value="${esc(i.productId)}">${esc(s.products.find(p=>p.id===i.productId)?.name||i.productId)} · ${Number(i.qty||0)} u.</option>`).join('');}
 function rateFor(currency){const cur=String(currency||'USD').toUpperCase();if(cur==='USD')return 1;const rows=(DB.getState().exchangeRates||[]).filter(r=>String(r.currency||'').toUpperCase()===cur&&Number(r.rate)>0).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));return rows.length?Number(rows[0].rate):null;}
