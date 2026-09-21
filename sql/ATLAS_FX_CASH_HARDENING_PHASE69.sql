@@ -40,6 +40,12 @@ begin
  return jsonb_build_object('id',eid,'reference',ref,'cash_amount',p_cash_amount,'currency',a.currency,'base_amount_usd',p_base_amount_usd,'rate',p_rate);
 end $$;
 
+-- F75: cerrar la ruta heredada de gastos. F57 queda disponible sólo como historial de migración;
+-- desde esta fase todo gasto autenticado debe usar atlas_create_expense_fx con snapshot FX explícito.
+revoke all on function public.atlas_create_expense(uuid,text,text,numeric,text) from public;
+revoke execute on function public.atlas_create_expense(uuid,text,text,numeric,text) from authenticated;
+revoke execute on function public.atlas_create_expense(uuid,text,text,numeric,text) from anon;
+
 -- Transferencia con coherencia FX y bloqueo determinista para evitar deadlocks en transferencias opuestas concurrentes.
 create or replace function public.atlas_cash_transfer(
  p_from_account uuid,p_to_account uuid,
