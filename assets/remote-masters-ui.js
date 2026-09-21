@@ -108,8 +108,11 @@ function openRoleEdit(id){
     <div class="permission-grid">${checks}</div>
   `,async fd=>{
     const selected=fd.getAll('perm').map(String);
+    if(!selected.length) throw new Error('Selecciona al menos un permiso para el rol.');
     const permissions=all&&selected.length===PERMISSIONS.length?['*']:selected;
-    await RemoteRepo.rpc('atlas_update_role',{p_role_id:id,p_name:String(fd.get('name')||role.name).trim(),p_permissions:permissions});
+    const name=String(fd.get('name')||role.name).trim();
+    if(!name) throw new Error('El nombre del rol es obligatorio.');
+    await RemoteRepo.rpc('atlas_update_role',{p_role_id:id,p_name:name,p_permissions:permissions});
     await refreshCore();
   });
 }
