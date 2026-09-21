@@ -1298,8 +1298,12 @@ using(company_id=public.current_company_id());
 revoke insert, update, delete on public.cash_transfers from authenticated;
 
 insert into public.accounting_accounts(company_id,code,name,type,active)
-select c.id,'5.2.02','Ajustes y diferencias de caja','Gasto',true from public.companies c
-on conflict(company_id,code) do nothing;
+select c.id,'5.2.02','Faltantes de caja','Gasto',true from public.companies c
+on conflict(company_id,code) do update set name=excluded.name,type=excluded.type,active=true;
+
+insert into public.accounting_accounts(company_id,code,name,type,active)
+select c.id,'4.9.01','Sobrantes de caja','Ingreso',true from public.companies c
+on conflict(company_id,code) do update set name=excluded.name,type=excluded.type,active=true;
 
 -- F72: contador interno sin depender de permisos de ventas/compras.
 -- No se concede EXECUTE al rol authenticated; sólo lo invocan RPC security definer autorizados.
@@ -1366,6 +1370,9 @@ begin
  select * into a from public.cash_accounts where id=p_cash_account and company_id=cid and active=true for update;
  if a.id is null then raise exception 'Cuenta inválida'; end if;
  if a.branch_id is not null and not public.can_access_branch(a.branch_id) then raise exception 'Sucursal no autorizada'; end if;
+ if exists(select 1 from public.cash_closings x where x.company_id=cid and x.cash_account_id=a.id and x.status='DIFFERENCE') then
+   raise exception 'Existe un cierre con diferencia pendiente para esta cuenta';
+ end if;
  diff:=round(p_counted-a.balance,6); ref:=public.atlas_internal_document_number('CASH_CLOSING','CJ-');
  insert into public.cash_closings(id,company_id,branch_id,cash_account_id,expected,counted,difference,created_by,reference,currency,note,status)
  values(rid,cid,a.branch_id,a.id,a.balance,p_counted,diff,auth.uid(),ref,a.currency,p_note,case when abs(diff)<0.0001 then 'BALANCED' else 'DIFFERENCE' end);
@@ -1386,6 +1393,7 @@ begin
  if c.status<>'DIFFERENCE' then raise exception 'El cierre no tiene diferencia pendiente'; end if;
  select * into a from public.cash_accounts where id=c.cash_account_id and company_id=cid for update;
  if a.id is null then raise exception 'Cuenta no encontrada'; end if;
+ if a.branch_id is not null and not public.can_access_branch(a.branch_id) then raise exception 'Sucursal no autorizada'; end if;
  if upper(a.currency)<>'USD' then
    select er.rate into rate from public.exchange_rates er where er.company_id=cid and upper(er.currency)=upper(a.currency) and er.effective_at<=c.created_at order by er.effective_at desc limit 1;
    if rate is null or rate<=0 then raise exception 'No existe tasa histórica para conciliar esta moneda'; end if;
@@ -1395,7 +1403,7 @@ begin
    update public.cash_accounts set balance=balance+amt where id=a.id;
    insert into public.cash_movements(company_id,account_id,direction,amount,currency,reference,description,created_by) values(cid,a.id,'IN',amt,a.currency,ref,p_reason,auth.uid());
    perform public.atlas_post_journal(cid,ref,'Sobrante de caja',jsonb_build_array(
-    jsonb_build_object('account_code','1.1.01','debit',base_usd,'credit',0),jsonb_build_object('account_code','5.2.02','debit',0,'credit',base_usd)));
+    jsonb_build_object('account_code','1.1.01','debit',base_usd,'credit',0),jsonb_build_object('account_code','4.9.01','debit',0,'credit',base_usd)));
  else
    if a.balance<amt then raise exception 'Saldo insuficiente para conciliar faltante'; end if;
    update public.cash_accounts set balance=balance-amt where id=a.id;
