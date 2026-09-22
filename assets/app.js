@@ -924,7 +924,16 @@ function topProductsReport(rows){
    map.set(item.productId,cur);
   }
  }
- return [...map.entries()].map(([id,v])=>({name:s.products.find(p=>p.id===id)?.name||id,...v})).sort((a,b)=>b.total-a.total);
+ for(const ret of (s.returns||[]).filter(r=>r.status!=="Anulada")){
+  const source=rows.find(sale=>sale.id===ret.saleId);
+  if(!source)continue;
+  const sold=(source.items||[]).find(i=>i.productId===ret.productId),cur=map.get(ret.productId)||{qty:0,total:0};
+  const qty=Number(ret.qty||0),base=Number(ret.amount||0);
+  cur.qty=Math.max(0,cur.qty-qty);
+  cur.total=Math.max(0,cur.total-(base>0?base:Number(sold?.price||0)*qty));
+  map.set(ret.productId,cur);
+ }
+ return [...map.entries()].map(([id,v])=>({name:s.products.find(p=>p.id===id)?.name||id,...v})).filter(x=>x.qty>0||x.total>0).sort((a,b)=>b.total-a.total);
 }
 function agedReceivables(){
  const s=state(),now=Date.now();
