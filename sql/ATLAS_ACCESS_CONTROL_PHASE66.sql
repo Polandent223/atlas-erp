@@ -45,6 +45,16 @@ begin
  if nullif(btrim(coalesce(p_name,'')),'') is null then raise exception 'Nombre requerido'; end if;
  if jsonb_typeof(perms)<>'array' then raise exception 'Permisos inválidos'; end if;
  if jsonb_array_length(perms)=0 then raise exception 'El rol debe tener al menos un permiso'; end if;
+ if exists(
+   select 1 from jsonb_array_elements_text(perms) p(value)
+   where p.value <> '*' and p.value not in (
+     'dashboard','company','branches','customers','suppliers','products','inventory',
+     'stockTransfers','sales','quotations','purchases','returns','cash','expenses',
+     'receivables','payables','rates','paymentMethods','users','roles','accounting',
+     'reports','audit','documents','settings','backup','system'
+   )
+ ) then raise exception 'Permiso desconocido'; end if;
+ if perms ? '*' and jsonb_array_length(perms) <> 1 then raise exception 'El permiso total (*) no puede mezclarse con permisos individuales'; end if;
  if exists(select 1 from public.roles where company_id=cid and lower(name)=lower(btrim(p_name))) then raise exception 'Ya existe ese rol'; end if;
  insert into public.roles(id,company_id,name,permissions) values(rid,cid,btrim(p_name),perms);
  insert into public.audit_log(company_id,user_id,action,entity,entity_id,detail)
@@ -60,6 +70,16 @@ begin
  if not (public.has_permission('settings.manage') or public.has_permission('*')) then raise exception 'Permiso insuficiente'; end if;
  if jsonb_typeof(perms)<>'array' then raise exception 'Permisos inválidos'; end if;
  if jsonb_array_length(perms)=0 then raise exception 'El rol debe tener al menos un permiso'; end if;
+ if exists(
+   select 1 from jsonb_array_elements_text(perms) p(value)
+   where p.value <> '*' and p.value not in (
+     'dashboard','company','branches','customers','suppliers','products','inventory',
+     'stockTransfers','sales','quotations','purchases','returns','cash','expenses',
+     'receivables','payables','rates','paymentMethods','users','roles','accounting',
+     'reports','audit','documents','settings','backup','system'
+   )
+ ) then raise exception 'Permiso desconocido'; end if;
+ if perms ? '*' and jsonb_array_length(perms) <> 1 then raise exception 'El permiso total (*) no puede mezclarse con permisos individuales'; end if;
  if nullif(btrim(coalesce(p_name,'')),'') is null then raise exception 'Nombre requerido'; end if;
  if exists(select 1 from public.roles where company_id=cid and id<>p_role_id and lower(name)=lower(btrim(p_name))) then raise exception 'Ya existe ese rol'; end if;
  update public.roles set name=btrim(p_name),permissions=perms
