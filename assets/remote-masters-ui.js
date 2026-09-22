@@ -148,6 +148,31 @@ function openRoleEdit(id){
   });
 }
 
+function openUserAccessEdit(id){
+  const s=DB.getState(), user=(s.users||[]).find(x=>String(x.id)===String(id));
+  if(!user) return alert('Usuario no encontrado.');
+  if(!s.roles?.length) return alert('Primero debes crear al menos un rol.');
+  const currentBranches=Array.isArray(s.branchAccess?.[user.id])?s.branchAccess[user.id]:[user.branchId].filter(Boolean);
+  const roleOptions=s.roles.map(r=>`<option value="${esc(r.id)}" ${String(r.id)===String(user.roleId)?'selected':''}>${esc(r.name)}</option>`).join('');
+  const branchChecks=(s.branches||[]).filter(b=>(b.status||'Activo')!=='Inactivo').map(b=>`<label class="perm-item"><input type="checkbox" name="branch" value="${esc(b.id)}" ${currentBranches.includes('*')||currentBranches.includes(b.id)?'checked':''}> <span>${esc(b.name)}</span></label>`).join('');
+  modal(`Acceso · ${user.name}`,`
+    <div class="field"><label>Rol</label><select name="roleId" required>${roleOptions}</select></div>
+    <div class="notice">Selecciona las sucursales que este usuario puede operar. El acceso a todas las sucursales se controla desde el permiso del rol.</div>
+    <div class="permission-grid">${branchChecks}</div>
+    <div class="field"><label><input type="checkbox" name="active" ${(user.status||'Activo')==='Activo'?'checked':''}> Usuario activo</label></div>
+  `,async fd=>{
+    const roleId=String(fd.get('roleId')||'');
+    const role=s.roles.find(r=>String(r.id)===roleId);
+    if(!role) throw new Error('Selecciona un rol válido.');
+    const branchIds=[...new Set(fd.getAll('branch').map(String).filter(Boolean))];
+    const allBranches=Array.isArray(role.permissions)&&role.permissions.includes('branches.all');
+    if(!allBranches&&!branchIds.length) throw new Error('Selecciona al menos una sucursal para este usuario.');
+    const active=fd.get('active')==='on';
+    await RemoteRepo.rpc('atlas_assign_user_access',{p_user_id:id,p_role_id:roleId,p_branch_ids:allBranches?[]:branchIds,p_active:active});
+    await refreshCore();
+  });
+}
+
 function normalize(v){return String(v||'').trim().replace(/\s+/g,' ').toLowerCase();}
 function injectEditButtons(){
   if(!isSupabaseConfigured()) return;
@@ -190,6 +215,11 @@ document.addEventListener('click',event=>{
   if(role){
     event.preventDefault();event.stopImmediatePropagation();
     return openRoleEdit(role.dataset.editRole);
+  }
+  const userAccess=event.target.closest?.('[data-edit-user-access]');
+  if(userAccess){
+    event.preventDefault();event.stopImmediatePropagation();
+    return openUserAccessEdit(userAccess.dataset.editUserAccess);
   }
 },true);
 
