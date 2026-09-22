@@ -893,7 +893,13 @@ function reportMetrics(from,to){
  for(const sale of sales){
   for(const item of sale.items||[])cogs+=Number((item.cost ?? s.products.find(p=>p.id===item.productId)?.cost ?? 0))*Number(item.qty||0);
  }
- for(const ret of saleReturns)cogs-=Number(ret.cost||0);
+ for(const ret of saleReturns){
+  const source=sales.find(x=>x.id===ret.saleId);
+  if(!source)continue;
+  const sold=(source.items||[]).find(i=>i.productId===ret.productId);
+  const unitCost=Number(ret.cost ?? sold?.cost ?? s.products.find(p=>p.id===ret.productId)?.cost ?? 0);
+  cogs-=unitCost*Number(ret.qty||0);
+ }
  cogs=safeMoney(Math.max(0,cogs));
  const grossProfit=safeMoney(netSales-cogs);
  const netProfit=safeMoney(grossProfit-expenseTotal);
