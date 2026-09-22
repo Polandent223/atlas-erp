@@ -6,6 +6,8 @@ on:
     paths:
       - 'sql/ATLAS_*PHASE*.sql'
       - 'scripts/build-atlas-installer.mjs'
+      - 'assets/**/*.js'
+      - 'sw.js'
       - '.github/workflows/build-atlas-installer.yml'
 
 permissions:
@@ -42,6 +44,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Validate JavaScript syntax
+        run: |
+          find assets -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          node --check sw.js
       - name: Generate installer
         run: node scripts/build-atlas-installer.mjs
       - name: Verify generated SQL exists
