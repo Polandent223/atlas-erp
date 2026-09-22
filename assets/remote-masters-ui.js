@@ -112,7 +112,12 @@ async function createRemoteRole(form){
   const fd=new FormData(form);
   const name=String(fd.get('name')||'').trim();
   if(!name) throw new Error('Nombre es obligatorio.');
-  const permissions=permissionsFromText(fd.get('permissions')||'dashboard');
+  const requested=permissionsFromText(fd.get('permissions')||'dashboard');
+  const allowed=new Set(ROLE_PERMISSION_CATALOG.map(p=>p.key));
+  const unknown=requested.filter(p=>p!=='*'&&!allowed.has(p));
+  if(unknown.length) throw new Error('Permisos no reconocidos: '+unknown.join(', ')+'. Edita el rol después de crearlo para seleccionar permisos válidos.');
+  if(requested.includes('*')&&requested.length!==1) throw new Error('El acceso total (*) no puede combinarse con otros permisos.');
+  const permissions=requested.length?requested:['dashboard'];
   await RemoteRepo.rpc('atlas_create_role',{p_name:name,p_permissions:permissions});
   await refreshCore();
 }
