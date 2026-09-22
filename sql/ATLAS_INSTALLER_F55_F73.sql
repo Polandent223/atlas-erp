@@ -1197,7 +1197,10 @@ begin
      'dashboard','company','branches','customers','suppliers','products','inventory',
      'stockTransfers','sales','quotations','purchases','returns','cash','expenses',
      'receivables','payables','rates','paymentMethods','users','roles','accounting',
-     'reports','audit','documents','settings','backup','system'
+     'reports','audit','documents','settings','backup','system',
+     'branches.all','customers.manage','suppliers.manage','products.manage','cash.manage',
+     'cash.operate','ar.manage','ap.manage','audit.view','settings.manage',
+     'operations.manage','sales.operate','purchases.operate'
    )
  ) then raise exception 'Permiso desconocido'; end if;
  if perms ? '*' and jsonb_array_length(perms) <> 1 then raise exception 'El permiso total (*) no puede mezclarse con permisos individuales'; end if;
@@ -1222,7 +1225,10 @@ begin
      'dashboard','company','branches','customers','suppliers','products','inventory',
      'stockTransfers','sales','quotations','purchases','returns','cash','expenses',
      'receivables','payables','rates','paymentMethods','users','roles','accounting',
-     'reports','audit','documents','settings','backup','system'
+     'reports','audit','documents','settings','backup','system',
+     'branches.all','customers.manage','suppliers.manage','products.manage','cash.manage',
+     'cash.operate','ar.manage','ap.manage','audit.view','settings.manage',
+     'operations.manage','sales.operate','purchases.operate'
    )
  ) then raise exception 'Permiso desconocido'; end if;
  if perms ? '*' and jsonb_array_length(perms) <> 1 then raise exception 'El permiso total (*) no puede mezclarse con permisos individuales'; end if;
