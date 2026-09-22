@@ -684,7 +684,7 @@ function users(){
   const r=s.roles.find(r=>r.id===u.roleId),b=s.branches.find(b=>b.id===u.branchId);
   return [`<strong>${esc(u.name)}</strong><br><small>${esc(u.email)}</small>`,esc(r?.name||""),esc(u.branchId==="all"?"Todas":b?.name||""),
    `<span class="badge ${(u.status||"Activo")==="Activo"?"ok":"warn"}">${esc(u.status||"Activo")}</span>`,
-   `<button class="btn ${(u.status||"Activo")==="Inactivo"?"btn-soft":"btn-danger"}" data-delete="user:${u.id}">${(u.status||"Activo")==="Inactivo"?"Reactivar":"Desactivar"}</button>`];
+   `<button class="btn btn-soft" data-edit-user-access="${u.id}">Acceso</button> <button class="btn ${(u.status||"Activo")==="Inactivo"?"btn-soft":"btn-danger"}" data-delete="user:${u.id}">${(u.status||"Activo")==="Inactivo"?"Reactivar":"Desactivar"}</button>`];
  }))}`;
 }
 function roles(){
