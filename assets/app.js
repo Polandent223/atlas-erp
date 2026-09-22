@@ -648,7 +648,7 @@ function receivables(){
  const credits=(s.customerCredits||[]).filter(c=>Number(c.balance||0)>0);
  return `<div class="hero"><div><h2>Cuentas por cobrar</h2><p>Créditos pendientes de clientes y saldos a favor.</p></div></div>
  ${table(["Documento","Cliente","Fecha","Vence","Documento","Saldo USD","Estado",""],s.receivables.map(r=>[
- esc(r.reference),esc(s.customers.find(c=>c.id===r.customerId)?.name||""),new Date(r.date).toLocaleDateString("es-VE"),new Date(r.dueDate).toLocaleDateString("es-VE"),moneyWithCurrency(r.documentTotal??r.total,r.currency||"USD"),`USD ${money(r.balance)}`,`<span class="badge ${r.balance>0?"warn":"ok"}">${esc(r.status)}</span>`,r.balance>0?`<button class="btn btn-soft" data-pay-ar="${r.id}">Cobrar</button>`:""
+ esc(r.reference),esc(s.customers.find(c=>c.id===r.customerId)?.name||""),new Date(r.date).toLocaleDateString("es-VE"),new Date(r.dueDate).toLocaleDateString("es-VE"),moneyWithCurrency(r.documentTotal??r.total,r.currency||"USD"),`${moneyWithCurrency(r.documentBalance??(Number(r.balance||0)*(String(r.currency||"USD").toUpperCase()==="USD"?1:Number(r.exchangeRate||1))),r.currency||"USD")}<br><small>Base USD ${money(r.balance)}</small>`,`<span class="badge ${r.balance>0?"warn":"ok"}">${esc(r.status)}</span>`,r.balance>0?`<button class="btn btn-soft" data-pay-ar="${r.id}">Cobrar</button>`:""
  ]))}
  <div style="height:18px"></div>
  <div class="card"><div class="section-title"><h3>Créditos a favor de clientes</h3><span class="badge ${credits.length?"warn":"ok"}">${credits.length} disponible(s)</span></div>
@@ -662,7 +662,7 @@ function payables(){
  const credits=(s.supplierCredits||[]).filter(c=>Number(c.balance||0)>0);
  return `<div class="hero"><div><h2>Cuentas por pagar</h2><p>Deudas con proveedores, devoluciones y créditos disponibles.</p></div></div>
  ${table(["Documento","Proveedor","Fecha","Vence","Documento","Saldo USD","Estado",""],s.payables.map(r=>[
- esc(r.reference),esc(s.suppliers.find(c=>c.id===r.supplierId)?.name||""),new Date(r.date).toLocaleDateString("es-VE"),new Date(r.dueDate).toLocaleDateString("es-VE"),moneyWithCurrency(r.documentTotal??r.total,r.currency||"USD"),`USD ${money(r.balance)}`,`<span class="badge ${r.balance>0?"warn":"ok"}">${esc(r.status)}</span>`,r.balance>0?`<button class="btn btn-soft" data-pay-ap="${r.id}">Pagar</button>`:""
+ esc(r.reference),esc(s.suppliers.find(c=>c.id===r.supplierId)?.name||""),new Date(r.date).toLocaleDateString("es-VE"),new Date(r.dueDate).toLocaleDateString("es-VE"),moneyWithCurrency(r.documentTotal??r.total,r.currency||"USD"),`${moneyWithCurrency(r.documentBalance??(Number(r.balance||0)*(String(r.currency||"USD").toUpperCase()==="USD"?1:Number(r.exchangeRate||1))),r.currency||"USD")}<br><small>Base USD ${money(r.balance)}</small>`,`<span class="badge ${r.balance>0?"warn":"ok"}">${esc(r.status)}</span>`,r.balance>0?`<button class="btn btn-soft" data-pay-ap="${r.id}">Pagar</button>`:""
  ]))}
  <div style="height:18px"></div>
  <div class="card"><div class="section-title"><h3>Créditos de proveedores</h3><span class="badge ${credits.length?"warn":"ok"}">${credits.length} disponible(s)</span></div>
