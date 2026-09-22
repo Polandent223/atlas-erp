@@ -897,8 +897,10 @@ function reportMetrics(from,to){
   const source=sales.find(x=>x.id===ret.saleId);
   if(!source)continue;
   const sold=(source.items||[]).find(i=>i.productId===ret.productId);
-  const unitCost=Number(ret.cost ?? sold?.cost ?? s.products.find(p=>p.id===ret.productId)?.cost ?? 0);
-  cogs-=unitCost*Number(ret.qty||0);
+  const qty=Number(ret.qty||0),storedCost=Number(ret.cost);
+  const unitCost=Number(sold?.cost ?? s.products.find(p=>p.id===ret.productId)?.cost ?? 0);
+  const returnedCost=Number.isFinite(storedCost)&&storedCost>0?storedCost:unitCost*qty;
+  cogs-=returnedCost;
  }
  cogs=safeMoney(Math.max(0,cogs));
  const grossProfit=safeMoney(netSales-cogs);
@@ -1956,7 +1958,7 @@ function voidSale(id){
 function newReturn(){
  const s=state(),eligibleSales=(s.sales||[]).filter(v=>v.status!=="Anulada");if(!eligibleSales.length)return alert("No hay ventas activas para devolver.");
  modal("Registrar devolución",`
-  <div class="field"><label>Venta</label><select name="saleId">${eligibleSales.map(v=>`<option value="${v.id}">${esc(v.number)} · $ ${money(v.total)}</option>`).join("")}</select></div>
+  <div class="field"><label>Venta</label><select name="saleId">${eligibleSales.map(v=>`<option value="${v.id}">${esc(v.number)} · ${moneyWithCurrency(v.documentTotal??v.total,v.currency||"USD")}</option>`).join("")}</select></div>
   <div class="field"><label>Producto</label><select name="productId">${s.products.filter(p=>(p.status||"Activo")!=="Inactivo").map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></div>
   ${field("Cantidad","qty","1","number",'min="1"')}
   <div class="notice">Si la venta fue de contado, selecciona de dónde saldrá el reembolso.</div>
