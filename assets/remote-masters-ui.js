@@ -108,16 +108,22 @@ function rolePermissionChecks(current,all){
   return ROLE_PERMISSION_CATALOG.map(p=>`<label class="perm-item" title="${esc(p.key)}"><input type="checkbox" name="perm" value="${esc(p.key)}" ${all||current.includes(p.key)?'checked':''}> <span><small>${esc(p.group)}</small> · ${esc(p.label)}</span></label>`).join('');
 }
 
+function validateRolePermissionSelection(selected){
+  const unique=[...new Set((selected||[]).map(String).filter(Boolean))];
+  const allowed=new Set(ROLE_PERMISSION_CATALOG.map(p=>p.key));
+  const unknown=unique.filter(p=>p!=='*'&&!allowed.has(p));
+  if(unknown.length) throw new Error('Permisos no reconocidos: '+unknown.join(', ')+'.');
+  if(unique.includes('*')&&unique.length!==1) throw new Error('El acceso total (*) no puede combinarse con otros permisos.');
+  if(!unique.length) throw new Error('Selecciona al menos un permiso para el rol.');
+  return unique;
+}
+
 async function createRemoteRole(form){
   const fd=new FormData(form);
   const name=String(fd.get('name')||'').trim();
   if(!name) throw new Error('Nombre es obligatorio.');
   const requested=permissionsFromText(fd.get('permissions')||'dashboard');
-  const allowed=new Set(ROLE_PERMISSION_CATALOG.map(p=>p.key));
-  const unknown=requested.filter(p=>p!=='*'&&!allowed.has(p));
-  if(unknown.length) throw new Error('Permisos no reconocidos: '+unknown.join(', ')+'. Edita el rol después de crearlo para seleccionar permisos válidos.');
-  if(requested.includes('*')&&requested.length!==1) throw new Error('El acceso total (*) no puede combinarse con otros permisos.');
-  const permissions=requested.length?requested:['dashboard'];
+  const permissions=validateRolePermissionSelection(requested.length?requested:['dashboard']);
   await RemoteRepo.rpc('atlas_create_role',{p_name:name,p_permissions:permissions});
   await refreshCore();
 }
@@ -133,8 +139,7 @@ function openRoleEdit(id){
     <div class="notice">Selecciona sólo los permisos necesarios. El acceso total se conserva únicamente si el rol ya usa "*".</div>
     <div class="permission-grid">${checks}</div>
   `,async fd=>{
-    const selected=fd.getAll('perm').map(String);
-    if(!selected.length) throw new Error('Selecciona al menos un permiso para el rol.');
+    const selected=validateRolePermissionSelection(fd.getAll('perm').map(String));
     const permissions=all&&selected.length===ROLE_PERMISSION_CATALOG.length?['*']:selected;
     const name=String(fd.get('name')||role.name).trim();
     if(!name) throw new Error('El nombre del rol es obligatorio.');
