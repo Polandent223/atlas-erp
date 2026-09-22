@@ -87,6 +87,27 @@ function permissionsFromText(value){
   return [...new Set(String(value||'').split(',').map(x=>x.trim()).filter(Boolean))];
 }
 
+const ROLE_PERMISSION_CATALOG=[
+  ...PERMISSIONS.map(key=>({key,label:key,group:'Módulos'})),
+  {key:'branches.all',label:'Acceso a todas las sucursales',group:'Operación'},
+  {key:'customers.manage',label:'Crear y editar clientes',group:'Operación'},
+  {key:'suppliers.manage',label:'Crear y editar proveedores',group:'Operación'},
+  {key:'products.manage',label:'Crear y editar productos',group:'Operación'},
+  {key:'sales.operate',label:'Registrar operaciones de venta',group:'Operación'},
+  {key:'purchases.operate',label:'Registrar operaciones de compra',group:'Operación'},
+  {key:'operations.manage',label:'Devoluciones, traslados y operaciones especiales',group:'Operación'},
+  {key:'cash.manage',label:'Administrar cuentas de caja y bancos',group:'Finanzas'},
+  {key:'cash.operate',label:'Registrar movimientos de caja',group:'Finanzas'},
+  {key:'ar.manage',label:'Administrar cuentas por cobrar',group:'Finanzas'},
+  {key:'ap.manage',label:'Administrar cuentas por pagar',group:'Finanzas'},
+  {key:'audit.view',label:'Consultar auditoría',group:'Control'},
+  {key:'settings.manage',label:'Modificar configuración financiera',group:'Control'}
+];
+
+function rolePermissionChecks(current,all){
+  return ROLE_PERMISSION_CATALOG.map(p=>`<label class="perm-item" title="${esc(p.key)}"><input type="checkbox" name="perm" value="${esc(p.key)}" ${all||current.includes(p.key)?'checked':''}> <span><small>${esc(p.group)}</small> · ${esc(p.label)}</span></label>`).join('');
+}
+
 async function createRemoteRole(form){
   const fd=new FormData(form);
   const name=String(fd.get('name')||'').trim();
@@ -101,7 +122,7 @@ function openRoleEdit(id){
   if(!role) return alert('Rol no encontrado.');
   const current=Array.isArray(role.permissions)?role.permissions:[];
   const all=current.includes('*');
-  const checks=PERMISSIONS.map(p=>`<label class="perm-item"><input type="checkbox" name="perm" value="${esc(p)}" ${all||current.includes(p)?'checked':''}> <span>${esc(p)}</span></label>`).join('');
+  const checks=rolePermissionChecks(current,all);
   modal(`Permisos · ${role.name}`,`
     ${field('Nombre del rol','name',role.name||'')}
     <div class="notice">Selecciona sólo los permisos necesarios. El acceso total se conserva únicamente si el rol ya usa "*".</div>
@@ -109,7 +130,7 @@ function openRoleEdit(id){
   `,async fd=>{
     const selected=fd.getAll('perm').map(String);
     if(!selected.length) throw new Error('Selecciona al menos un permiso para el rol.');
-    const permissions=all&&selected.length===PERMISSIONS.length?['*']:selected;
+    const permissions=all&&selected.length===ROLE_PERMISSION_CATALOG.length?['*']:selected;
     const name=String(fd.get('name')||role.name).trim();
     if(!name) throw new Error('El nombre del rol es obligatorio.');
     await RemoteRepo.rpc('atlas_update_role',{p_role_id:id,p_name:name,p_permissions:permissions});
