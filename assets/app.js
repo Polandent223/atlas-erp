@@ -444,8 +444,8 @@ function printPurchase(id){
 }
 function printExpense(id){
  const s=state(),e=(s.expenses||[]).find(x=>x.id===id);if(!e)return alert("Gasto no encontrado.");
- const currency=e.currency||"USD";
- docPrint(`Comprobante ${e.reference||e.number||""}`,`<h1>Comprobante de gasto</h1><p><b>Referencia:</b> ${esc(e.reference||e.number||"")}</p><p><b>Fecha:</b> ${esc(e.date||"")}</p><p><b>Concepto:</b> ${esc(e.description||e.concept||"")}</p><h2>Monto: ${money(e.amount||e.total||0,currency)}</h2>`);
+ const currency=String(e.currency||"USD").toUpperCase(),cashAmount=Number(e.cashAmount??e.amount??e.total??0),base=Number(e.baseAmountUSD??e.amount??e.total??0),rate=currency==="USD"?1:Number(e.exchangeRate||1);
+ docPrint(`Comprobante ${e.reference||e.number||""}`,`<h1>Comprobante de gasto</h1><p><b>Referencia:</b> ${esc(e.reference||e.number||"")}</p><p><b>Fecha:</b> ${esc(e.date||"")}</p><p><b>Concepto:</b> ${esc(e.description||e.concept||"")}</p><h2>Monto pagado: ${moneyWithCurrency(cashAmount,currency)}</h2>${currency!=="USD"?`<p><b>Base contable:</b> USD ${money(base)} · <b>Tasa:</b> ${money(rate)}</p>`:""}`);
 }
 
 
