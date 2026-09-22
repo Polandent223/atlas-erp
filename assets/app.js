@@ -1313,10 +1313,13 @@ function openAdd(kind){
    const rate=nonNegative(f.get("rate"),"Tasa");if(rate<=0)throw new Error("La tasa debe ser mayor a cero");
    s.exchangeRates.push({id:DB.id("fx"),date:f.get("date"),currency:f.get("currency"),rate,source:String(f.get("source")||"Manual").trim()});DB.log(`Tasa actualizada: ${f.get("currency")}`);
  });
- if(kind==="user")return modal("Nuevo usuario",`${field("Nombre","name","")}${field("Correo","email","")}${field("PIN","pin","1234")}<div class="field"><label>Rol</label><select name="roleId">${s.roles.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join("")}</select></div><div class="field"><label>Sucursal</label><select name="branchId"><option value="all">Todas</option>${DB.visibleBranches().filter(b=>(b.status||"Activo")!=="Inactivo").map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join("")}</select></div>`,f=>{
+ if(kind==="user"){
+  if(isSupabaseConfigured())return modal("Nuevo usuario",`<div class="notice">Por seguridad, ATLAS no crea contraseñas ni usuarios de Supabase Auth desde el navegador. Crea primero el usuario en Supabase Auth; cuando aparezca en esta lista podrás asignarle rol y sucursales con el botón Acceso.</div>`,()=>{});
+  return modal("Nuevo usuario",`${field("Nombre","name","")}${field("Correo","email","")}${field("PIN","pin","1234")}<div class="field"><label>Rol</label><select name="roleId">${s.roles.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join("")}</select></div><div class="field"><label>Sucursal</label><select name="branchId"><option value="all">Todas</option>${DB.visibleBranches().filter(b=>(b.status||"Activo")!=="Inactivo").map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join("")}</select></div>`,f=>{
    const name=requiredText(f.get("name"),"Nombre"),email=requiredText(f.get("email"),"Correo");uniqueValue(s.users,"email",email,"Correo");
    s.users.push({id:DB.id("u"),name,email,pin:requiredText(f.get("pin"),"PIN"),roleId:f.get("roleId"),branchId:f.get("branchId"),status:"Activo"});DB.log(`Usuario creado: ${name}`);
- });
+  });
+ }
  if(kind==="role")return modal("Nuevo rol",`${field("Nombre","name","")}${field("Descripción","description","")}${field("Permisos separados por coma","permissions","dashboard")}`,f=>{
    const name=requiredText(f.get("name"),"Nombre");uniqueValue(s.roles,"name",name,"Rol");
    s.roles.push({id:DB.id("r"),name,description:String(f.get("description")||"").trim(),permissions:String(f.get("permissions")||"dashboard").split(",").map(x=>x.trim()).filter(Boolean)});DB.log(`Rol creado: ${name}`);
