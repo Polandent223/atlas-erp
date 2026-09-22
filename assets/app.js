@@ -723,9 +723,9 @@ function returns(){
 function expenses(){
  const s=state(),total=s.expenses.reduce((a,x)=>a+Number(x.amount||0),0);
  return `<div class="hero"><div><h2>Gastos</h2><p>Registra egresos y contabilízalos automáticamente.</p></div><button class="btn btn-primary" id="newExpense">+ Nuevo gasto</button></div>
- <div class="grid stats"><div class="card stat"><div class="label">Gastos acumulados</div><div class="value">$ ${money(total)}</div><div class="hint">${s.expenses.length} registros</div></div></div>
- ${table(["Fecha","Categoría","Descripción","Cuenta","Monto","Referencia"],s.expenses.slice().reverse().map(x=>[
-  datefmt(x.date),esc(x.category),esc(x.description),esc(s.cashAccounts.find(a=>a.id===x.accountId)?.name||""),`$ ${money(x.amount)}`,esc(x.reference)
+ <div class="grid stats"><div class="card stat"><div class="label">Gastos acumulados · Base contable</div><div class="value">USD ${money(total)}</div><div class="hint">${s.expenses.length} registros</div></div></div>
+ ${table(["Fecha","Categoría","Descripción","Cuenta","Monto pagado","Base USD","Referencia"],s.expenses.slice().reverse().map(x=>[
+  datefmt(x.date),esc(x.category),esc(x.description),esc(s.cashAccounts.find(a=>a.id===x.accountId)?.name||""),moneyWithCurrency(x.cashAmount??x.amount,x.currency||"USD"),`USD ${money(x.baseAmountUSD??x.amount)}`,esc(x.reference)
  ]))}`;
 }
 function paymentMethods(){
