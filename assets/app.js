@@ -710,14 +710,14 @@ function quotations(){
  const s=state();
  return `<div class="hero"><div><h2>Cotizaciones</h2><p>Presupuestos previos a la venta, sin afectar inventario ni caja.</p></div><button class="btn btn-primary" id="newQuote">+ Nueva cotización</button></div>
  ${table(["N°","Fecha","Cliente","Total","Estado",""],s.quotations.slice().reverse().map(q=>[
-  esc(q.number),datefmt(q.date),esc(s.customers.find(c=>c.id===q.customerId)?.name||""),`$ ${money(q.total)}`,`<span class="badge ${q.status==="Convertida"?"ok":"warn"}">${esc(q.status)}</span>`,q.status!=="Convertida"?`<button class="btn btn-soft" data-quote-sale="${q.id}">Convertir en venta</button>`:""
+  esc(q.number),datefmt(q.date),esc(s.customers.find(c=>c.id===q.customerId)?.name||""),moneyWithCurrency(q.documentTotal??q.total,q.currency||"USD"),`<span class="badge ${q.status==="Convertida"?"ok":"warn"}">${esc(q.status)}</span>`,q.status!=="Convertida"?`<button class="btn btn-soft" data-quote-sale="${q.id}">Convertir en venta</button>`:""
  ]))}`;
 }
 function returns(){
  const s=state();
  return `<div class="hero"><div><h2>Devoluciones</h2><p>Reintegros de ventas con devolución automática al inventario.</p></div><button class="btn btn-primary" id="newReturn">+ Registrar devolución</button></div>
  ${table(["N°","Fecha","Venta","Producto","Cantidad","Monto","Estado"],s.returns.slice().reverse().map(r=>[
-  esc(r.number),datefmt(r.date),esc(r.saleNumber),esc(s.products.find(p=>p.id===r.productId)?.name||""),esc(r.qty),`$ ${money(r.amount)}`,`<span class="badge ok">${esc(r.status)}</span>`
+  esc(r.number),datefmt(r.date),esc(r.saleNumber),esc(s.products.find(p=>p.id===r.productId)?.name||""),esc(r.qty),(()=>{const sale=s.sales.find(v=>v.id===r.saleId),currency=String(sale?.currency||"USD").toUpperCase(),rate=currency==="USD"?1:Number(sale?.exchangeRate||1);return moneyWithCurrency(Number(r.amount||0)*rate,currency)})(),`<span class="badge ok">${esc(r.status)}</span>`
  ]))}`;
 }
 function expenses(){
