@@ -588,10 +588,19 @@ function cartTotals(){
  const tax=cart.reduce((a,i)=>a+(i.qty*i.price)*(i.tax/100),0);
  return {subtotal,tax,total:subtotal+tax};
 }
-function saleTotalsHtml(){const t=cartTotals();return `<div class="line"><span>Subtotal</span><strong>$ ${money(t.subtotal)}</strong></div><div class="line"><span>Impuestos</span><strong>$ ${money(t.tax)}</strong></div><div class="line grand"><span>Total</span><span>$ ${money(t.total)}</span></div>`}
+function saleDisplayCurrency(){
+ const currency=String(document.getElementById("saleCurrency")?.value||"USD").toUpperCase();
+ const rawRate=currency==="USD"?1:Number(latestRateFor(currency)||0);
+ return {currency,rate:rawRate>0?rawRate:1,hasRate:currency==="USD"||rawRate>0};
+}
+function saleTotalsHtml(){
+ const t=cartTotals(),fx=saleDisplayCurrency(),factor=fx.rate;
+ return `<div class="line"><span>Subtotal</span><strong>${moneyWithCurrency(t.subtotal*factor,fx.currency)}</strong></div><div class="line"><span>Impuestos</span><strong>${moneyWithCurrency(t.tax*factor,fx.currency)}</strong></div><div class="line grand"><span>Total</span><span>${moneyWithCurrency(t.total*factor,fx.currency)}</span></div>${fx.currency!=="USD"?`<small style="display:block;margin-top:8px">Base contable USD ${money(t.total)}${fx.hasRate?` · Tasa ${money(fx.rate)}`:" · Sin tasa disponible"}</small>`:""}`;
+}
 function renderCartRows(){
  if(!cart.length)return `<div class="notice" style="margin:12px 0">Haz clic en un producto para agregarlo a la venta.</div>`;
- return cart.map(i=>`<div class="cart-row"><div><strong>${esc(i.name)}</strong><small style="display:block;color:#667085">$ ${money(i.price)} c/u</small></div><input data-cart-qty="${i.productId}" type="number" min="1" value="${i.qty}"><div><strong>$ ${money(i.qty*i.price*(1+i.tax/100))}</strong></div><button class="btn btn-danger" data-cart-remove="${i.productId}">×</button></div>`).join("");
+ const fx=saleDisplayCurrency(),factor=fx.rate;
+ return cart.map(i=>`<div class="cart-row"><div><strong>${esc(i.name)}</strong><small style="display:block;color:#667085">${moneyWithCurrency(i.price*factor,fx.currency)} c/u</small></div><input data-cart-qty="${i.productId}" type="number" min="1" value="${i.qty}"><div><strong>${moneyWithCurrency(i.qty*i.price*(1+i.tax/100)*factor,fx.currency)}</strong></div><button class="btn btn-danger" data-cart-remove="${i.productId}">×</button></div>`).join("");
 }
 function refreshCart(){
  const rows=document.getElementById("cartRows"),tb=document.querySelector(".total-box");if(rows)rows.innerHTML=renderCartRows();if(tb)tb.innerHTML=saleTotalsHtml();bindCart();
@@ -1089,6 +1098,7 @@ function bind(){
  document.querySelectorAll("[data-search]").forEach(i=>i.oninput=()=>search(i.dataset.search,i.value));
  document.querySelectorAll("[data-adjust]").forEach(b=>b.onclick=()=>adjustStock(b.dataset.adjust));
  document.querySelectorAll("[data-cart-add]").forEach(b=>b.onclick=()=>addCart(b.dataset.cartAdd));
+ const saleCurrency=document.getElementById("saleCurrency");if(saleCurrency)saleCurrency.onchange=()=>refreshCart();
  const cc=document.getElementById("clearCart");if(cc)cc.onclick=()=>{cart=[];refreshCart()};
  const cs=document.getElementById("completeSale");if(cs)cs.onclick=completeSale;
  const np=document.getElementById("newPurchase");if(np)np.onclick=newPurchase;
