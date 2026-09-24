@@ -611,7 +611,7 @@ function purchases(){
 function cash(){
  const s=state();
  const accounts=activeCashAccounts();
- const openDiffs=(s.cashClosings||[]).filter(c=>c.status==="Con diferencia");
+ const openDiffs=(s.cashClosings||[]).filter(c=>c.status==="Con diferencia"&&!c.reconciledAt);
  return `<div class="hero"><div><h2>Caja y bancos</h2><p>Control de saldos, transferencias, cierres y diferencias.</p></div>
  <div class="hero-actions">
   ${moduleAllowed("paymentMethods")?'<button class="btn btn-soft" data-nav="paymentMethods">Métodos de pago</button>':""}
@@ -634,7 +634,7 @@ function cash(){
     datefmt(c.date),esc(s.cashAccounts.find(a=>a.id===c.accountId)?.name||""),moneyWithCurrency(c.systemBalance,c.currency),
     moneyWithCurrency(c.countedBalance,c.currency),moneyWithCurrency(c.difference,c.currency),
     `<span class="badge ${c.status==="Cuadrado"?"ok":c.status==="Conciliado"?"ok":"warn"}">${esc(c.status)}</span>`,
-    c.status==="Con diferencia"?`<button class="btn btn-soft" data-reconcile-cash="${c.id}">Conciliar</button>`:""
+    c.status==="Con diferencia"&&!c.reconciledAt?`<button class="btn btn-soft" data-reconcile-cash="${c.id}">Conciliar</button>`:""
    ])):'<div class="notice">Todavía no hay cierres de caja.</div>'}
   </div>
  </div>
