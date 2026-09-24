@@ -535,7 +535,7 @@ function partyPage(kind,title,key){
 }
 function partyTable(kind,arr){
  return table(["Código","Nombre","RIF / ID","Teléfono","Ciudad","Saldo","Estado",""],arr.map(x=>[
-  esc(x.code),`<strong>${esc(x.name)}</strong>`,esc(x.taxId),esc(x.phone),esc(x.city),`$ ${money(x.balance||0)}`,
+  esc(x.code),`<strong>${esc(x.name)}</strong>`,esc(x.taxId),esc(x.phone),esc(x.city),`USD ${money(x.balance||0)}`,
   `<span class="badge ${(x.status||"Activo")==="Activo"?"ok":"warn"}">${esc(x.status||"Activo")}</span>`,
   `<button class="btn ${(x.status||"Activo")==="Inactivo"?"btn-soft":"btn-danger"}" data-delete="${kind}:${x.id}">${(x.status||"Activo")==="Inactivo"?"Reactivar":"Desactivar"}</button>`
  ]));
@@ -829,10 +829,10 @@ function accounting(){
  const vatNet=sum.vatPay-sum.vatCredit;
  return `<div class="hero"><div><h2>Contabilidad</h2><p>Libro diario, mayor, balance de comprobación, resultado e IVA.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-soft" id="syncAccounting">Sincronizar contabilidad</button><button class="btn btn-primary" id="manualJournal">+ Asiento manual</button></div></div>
  <div class="kpi-row">
-  <div class="card stat"><div class="label">Ventas</div><div class="value">$ ${money(sum.sales)}</div></div>
-  <div class="card stat"><div class="label">Costo de ventas</div><div class="value">$ ${money(sum.cogs)}</div></div>
-  <div class="card stat"><div class="label">Resultado</div><div class="value">$ ${money(netIncome)}</div></div>
-  <div class="card stat"><div class="label">IVA neto</div><div class="value">$ ${money(vatNet)}</div></div>
+  <div class="card stat"><div class="label">Ventas · Base contable</div><div class="value">USD ${money(sum.sales)}</div></div>
+  <div class="card stat"><div class="label">Costo de ventas · Base contable</div><div class="value">USD ${money(sum.cogs)}</div></div>
+  <div class="card stat"><div class="label">Resultado · Base contable</div><div class="value">USD ${money(netIncome)}</div></div>
+  <div class="card stat"><div class="label">IVA neto · Base contable</div><div class="value">USD ${money(vatNet)}</div></div>
  </div>
  <div class="grid two">
   <div class="card"><div class="section-title"><h3>Balance de comprobación</h3><span class="badge ${Math.abs(debitTotal-creditTotal)<.01?"ok":"warn"}">${Math.abs(debitTotal-creditTotal)<.01?"Cuadrado":"Revisar"}</span></div>
@@ -842,12 +842,12 @@ function accounting(){
   </div>
   <div class="card"><div class="section-title"><h3>Resumen fiscal y financiero</h3></div>
    <div class="list">
-    <div class="list-item"><strong>IVA débito fiscal</strong><span>$ ${money(sum.vatPay)}</span></div>
-    <div class="list-item"><strong>IVA crédito fiscal</strong><span>$ ${money(sum.vatCredit)}</span></div>
-    <div class="list-item"><strong>IVA neto estimado</strong><span>$ ${money(vatNet)}</span></div>
-    <div class="list-item"><strong>Cuentas por cobrar</strong><span>$ ${money(sum.ar)}</span></div>
-    <div class="list-item"><strong>Cuentas por pagar</strong><span>$ ${money(sum.ap)}</span></div>
-    <div class="list-item"><strong>Inventario contable</strong><span>$ ${money(sum.inventory)}</span></div>
+    <div class="list-item"><strong>IVA débito fiscal</strong><span>USD ${money(sum.vatPay)}</span></div>
+    <div class="list-item"><strong>IVA crédito fiscal</strong><span>USD ${money(sum.vatCredit)}</span></div>
+    <div class="list-item"><strong>IVA neto estimado</strong><span>USD ${money(vatNet)}</span></div>
+    <div class="list-item"><strong>Cuentas por cobrar</strong><span>USD ${money(sum.ar)}</span></div>
+    <div class="list-item"><strong>Cuentas por pagar</strong><span>USD ${money(sum.ap)}</span></div>
+    <div class="list-item"><strong>Inventario contable</strong><span>USD ${money(sum.inventory)}</span></div>
    </div>
   </div>
  </div>
