@@ -484,7 +484,7 @@ function dashboard(){
  const audit=Array.isArray(auditIssues)?auditIssues:[];
  const low=(s.inventory||[]).filter(i=>Number(i.stock||0)<=Number(s.settings.reporting?.lowStockThreshold||5));
  const overdue=agedReceivables().filter(r=>r.days>Number(s.settings.reporting?.staleReceivableDays||30));
- const cashDiff=(s.cashClosings||[]).filter(c=>c.status==="Con diferencia");
+ const cashDiff=(s.cashClosings||[]).filter(c=>c.status==="Con diferencia"&&!c.reconciledAt);
  const recent=(s.sales||[]).slice().reverse().slice(0,6),top=topProductsReport(m.sales).slice(0,5);
  const quick=[["Nueva venta","sales","＋"],["Nueva compra","purchases","↗"],["Registrar gasto","expenses","−"],["Cobrar cliente","receivables","✓"],["Pagar proveedor","payables","⇩"],["Ver reportes","reports","▥"]];
  return `<div class="atlas-dashboard">
@@ -905,12 +905,12 @@ function reportMetrics(from,to){
  cogs=safeMoney(Math.max(0,cogs));
  const grossProfit=safeMoney(netSales-cogs);
  const netProfit=safeMoney(grossProfit-expenseTotal);
- const ar=(s.receivables||[]).reduce((a,x)=>a+Number(x.balance||0),0);
- const ap=(s.payables||[]).reduce((a,x)=>a+Number(x.balance||0),0);
+ const ar=(s.receivables||[]).filter(x=>Number(x.balance||0)>0&&x.status!=="Pagada"&&x.status!=="Anulada").reduce((a,x)=>a+Number(x.balance||0),0);
+ const ap=(s.payables||[]).filter(x=>Number(x.balance||0)>0&&x.status!=="Pagada"&&x.status!=="Anulada").reduce((a,x)=>a+Number(x.balance||0),0);
  let inventoryValue=0;
  for(const inv of s.inventory||[]){
   const p=s.products.find(x=>x.id===inv.productId);
-  inventoryValue+=Number(inv.stock||0)*Number(p?.cost||0);
+  inventoryValue+=Math.max(0,Number(inv.stock||0))*Number(p?.cost||0);
  }
  return {sales,purchases,expenses,saleReturns,purchaseReturns,salesGross,returnsSales,netSales,purchasesGross,returnsPurchases,netPurchases,expenseTotal,cogs,grossProfit,netProfit,ar,ap,inventoryValue};
 }
@@ -945,7 +945,7 @@ function topProductsReport(rows){
 }
 function agedReceivables(){
  const s=state(),now=Date.now();
- return (s.receivables||[]).filter(r=>Number(r.balance||0)>0).map(r=>{
+ return (s.receivables||[]).filter(r=>Number(r.balance||0)>0&&r.status!=="Pagada"&&r.status!=="Anulada").map(r=>{
   const due=reportDateValue(r.dueDate||r.date);
   return {...r,days:Math.max(0,Math.floor((now-due)/86400000))};
  }).sort((a,b)=>b.days-a.days);
@@ -954,7 +954,7 @@ function inventoryValuation(){
  const s=state();
  return (s.inventory||[]).map(inv=>{
   const p=s.products.find(x=>x.id===inv.productId);
-  const cost=Number(p?.cost||0),stock=Number(inv.stock||0);
+  const cost=Number(p?.cost||0),stock=Math.max(0,Number(inv.stock||0));
   return {product:p?.name||inv.productId,branch:s.branches.find(b=>b.id===inv.branchId)?.name||"",stock,cost,value:safeMoney(stock*cost)};
  }).sort((a,b)=>b.value-a.value);
 }
@@ -999,7 +999,7 @@ function reports(){
  const top=topProductsReport(m.sales).slice(0,8),branches=groupedSalesByBranch(m.sales).slice(0,8),aged=agedReceivables().slice(0,10),inv=inventoryValuation();
  const low=(s.inventory||[]).filter(i=>Number(i.stock||0)<=Number(s.settings.reporting?.lowStockThreshold||5));
  const stale=aged.filter(r=>r.days>Number(s.settings.reporting?.staleReceivableDays||30)).length;
- const cashDiff=(s.cashClosings||[]).filter(c=>c.status==="Con diferencia").length;
+ const cashDiff=(s.cashClosings||[]).filter(c=>c.status==="Con diferencia"&&!c.reconciledAt).length;
  const alerts=[...(low.length?[`${low.length} producto(s) con stock bajo`]:[]),...(stale?[`${stale} cuenta(s) por cobrar vencidas`]:[]),...(cashDiff?[`${cashDiff} cierre(s) de caja con diferencia`]:[])];
  return `<div class="hero"><div><h2>Reportes y control gerencial</h2><p>Resumen ejecutivo del negocio para tomar decisiones rápidas.</p></div>
  <div class="hero-actions"><button class="btn btn-soft" id="exportReportCSV">Exportar CSV</button><button class="btn btn-primary" id="printManagerReport">Imprimir / PDF</button></div></div>
