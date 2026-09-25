@@ -152,7 +152,7 @@ function openUserAccessEdit(id){
   const s=DB.getState(), user=(s.users||[]).find(x=>String(x.id)===String(id));
   if(!user) return alert('Usuario no encontrado.');
   if(!s.roles?.length) return alert('Primero debes crear al menos un rol.');
-  const currentBranches=Array.isArray(s.branchAccess?.[user.id])?s.branchAccess[user.id]:[user.branchId].filter(Boolean);
+  const currentBranches=Array.isArray(user.branchIds)&&user.branchIds.length?user.branchIds:(Array.isArray(s.branchAccess?.[user.id])?s.branchAccess[user.id]:[user.branchId].filter(id=>id&&id!=='all'));
   const roleOptions=s.roles.map(r=>`<option value="${esc(r.id)}" ${String(r.id)===String(user.roleId)?'selected':''}>${esc(r.name)}</option>`).join('');
   const branchChecks=(s.branches||[]).filter(b=>(b.status||'Activo')!=='Inactivo').map(b=>`<label class="perm-item"><input type="checkbox" name="branch" value="${esc(b.id)}" ${currentBranches.includes('*')||currentBranches.includes(b.id)?'checked':''}> <span>${esc(b.name)}</span></label>`).join('');
   modal(`Acceso · ${user.name}`,`
