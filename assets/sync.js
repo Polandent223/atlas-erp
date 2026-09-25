@@ -12,6 +12,7 @@ function applyAccessSnapshot(localState,snapshot){
  const roles=Array.isArray(snapshot?.roles)?snapshot.roles:[],users=Array.isArray(snapshot?.users)?snapshot.users:[];
  localState.roles=roles.map(r=>({id:r.id,name:r.name,description:'',permissions:Array.isArray(r.permissions)?r.permissions:[]}));
  localState.users=users.map(u=>({id:u.id,name:u.name||'Usuario',email:'',pin:'',roleId:u.role_id||null,branchId:Array.isArray(u.branch_ids)&&u.branch_ids.length===1?u.branch_ids[0]:'all',branchIds:Array.isArray(u.branch_ids)?u.branch_ids:[],status:u.status==='INACTIVE'?'Inactivo':'Activo'}));
+ localState.branchAccess=Object.fromEntries(localState.users.map(u=>[u.id,Array.isArray(u.branchIds)?u.branchIds:[]]));
 }
 export async function pullCoreWorkspace(localState){
  const profile=await getRemoteProfile(); if(!profile)throw new Error("No hay perfil remoto.");
