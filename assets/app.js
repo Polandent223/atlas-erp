@@ -1831,8 +1831,10 @@ function applyCustomerCredit(creditId){
 function payReceivable(id){
  const s=state(),r=s.receivables.find(x=>x.id===id);if(!r)return;
  modal("Registrar cobro",`<div class="notice">Saldo a aplicar en USD. ATLAS convierte automáticamente al tipo de moneda de la cuenta seleccionada.</div>${field("Monto a aplicar (USD)","amount",r.balance,"number",'step="0.01" min="0.01"')}<div class="field"><label>Método de pago</label><select name="paymentMethodId">${activePaymentMethods().map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join("")}</select></div><div class="field"><label>Cuenta destino</label><select name="accountId">${activeCashAccounts().map(a=>`<option value="${a.id}">${esc(a.name)} (${esc(a.currency)})</option>`).join("")}</select></div>`,async f=>{
-  const requested=requirePositiveNumber(f.get("amount"),"Monto");const amt=Math.min(requested,Number(r.balance||0));if(amt<=0)throw new Error("La cuenta ya no tiene saldo pendiente.");requireSelection(f.get("accountId"),"una cuenta destino");
-  if(isSupabaseConfigured()){await RemoteRepo.collectReceivable({p_receivable:id,p_amount:amt,p_cash_account:f.get("accountId")});await pullTransactions(state());await pullAccounting(state());DB.setSyncStatus("synced");DB.log(`Cobro remoto registrado: ${r.reference}`,"CREATE","receivable_payment");return;}
+  const requested=requirePositiveNumber(f.get("amount"),"Monto");const amt=Math.min(requested,Number(r.balance||0));if(amt<=0)throw new Error("La cuenta ya no tiene saldo pendiente.");const accountId=requireSelection(f.get("accountId"),"una cuenta destino");
+  const account=ensureActive(activeCashAccounts().find(a=>a.id===accountId),"Cuenta destino");
+  if(String(account.currency||"USD").toUpperCase()!=="USD"&&!latestRateFor(account.currency))throw new Error(`No existe una tasa vigente para ${account.currency}. Registra la tasa antes de cobrar.`);
+  if(isSupabaseConfigured()){await RemoteRepo.collectReceivable({p_receivable:id,p_amount:amt,p_cash_account:accountId});await pullTransactions(state());await pullAccounting(state());DB.setSyncStatus("synced");DB.log(`Cobro remoto registrado: ${r.reference}`,"CREATE","receivable_payment");return;}
   return localAtomic("Cobro",()=>{
   r.balance-=amt;r.status=r.balance<=0?"Pagada":"Parcial";const c=s.customers.find(c=>c.id===r.customerId);if(c)c.balance=Math.max(0,Number(c.balance||0)-amt);
   const payment=convertedPayment(amt,f.get("accountId"));
@@ -1846,8 +1848,10 @@ function payReceivable(id){
 function payPayable(id){
  const s=state(),r=s.payables.find(x=>x.id===id);if(!r)return;
  modal("Registrar pago",`<div class="notice">Saldo a aplicar en USD. ATLAS convierte automáticamente al tipo de moneda de la cuenta seleccionada.</div>${field("Monto a aplicar (USD)","amount",r.balance,"number",'step="0.01" min="0.01"')}<div class="field"><label>Método de pago</label><select name="paymentMethodId">${activePaymentMethods().map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join("")}</select></div><div class="field"><label>Cuenta origen</label><select name="accountId">${activeCashAccounts().map(a=>`<option value="${a.id}">${esc(a.name)} (${esc(a.currency)})</option>`).join("")}</select></div>`,async f=>{
-  const requested=requirePositiveNumber(f.get("amount"),"Monto");const amt=Math.min(requested,Number(r.balance||0));if(amt<=0)throw new Error("La cuenta ya no tiene saldo pendiente.");requireSelection(f.get("accountId"),"una cuenta origen");
-  if(isSupabaseConfigured()){await RemoteRepo.payPayable({p_payable:id,p_amount:amt,p_cash_account:f.get("accountId")});await pullTransactions(state());await pullAccounting(state());DB.setSyncStatus("synced");DB.log(`Pago remoto registrado: ${r.reference}`,"CREATE","payable_payment");return;}
+  const requested=requirePositiveNumber(f.get("amount"),"Monto");const amt=Math.min(requested,Number(r.balance||0));if(amt<=0)throw new Error("La cuenta ya no tiene saldo pendiente.");const accountId=requireSelection(f.get("accountId"),"una cuenta origen");
+  const account=ensureActive(activeCashAccounts().find(a=>a.id===accountId),"Cuenta origen");
+  if(String(account.currency||"USD").toUpperCase()!=="USD"&&!latestRateFor(account.currency))throw new Error(`No existe una tasa vigente para ${account.currency}. Registra la tasa antes de pagar.`);
+  if(isSupabaseConfigured()){await RemoteRepo.payPayable({p_payable:id,p_amount:amt,p_cash_account:accountId});await pullTransactions(state());await pullAccounting(state());DB.setSyncStatus("synced");DB.log(`Pago remoto registrado: ${r.reference}`,"CREATE","payable_payment");return;}
   return localAtomic("Pago",()=>{
   r.balance-=amt;r.status=r.balance<=0?"Pagada":"Parcial";const p=s.suppliers.find(p=>p.id===r.supplierId);if(p)p.balance=Math.max(0,Number(p.balance||0)-amt);
   const payment=convertedPayment(amt,f.get("accountId"));
