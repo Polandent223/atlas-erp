@@ -1397,11 +1397,13 @@ async function completeSale(){
  if(isSupabaseConfigured()){
    try{
      const totals=cartTotals();
+     const exchangeRate=documentCurrency==="USD"?1:Number(latestRateFor(documentCurrency)||0);
+     if(documentCurrency!=="USD"&&exchangeRate<=0)throw new Error(`No existe una tasa vigente para ${documentCurrency}. Registra la tasa antes de completar la venta.`);
      const result=await RemoteRepo.createSale({
        p_branch:branchId,
        p_customer:customerId,
        p_currency:documentCurrency,
-       p_exchange_rate:Number(DB.rate(documentCurrency)?.rate||1),
+       p_exchange_rate:exchangeRate,
        p_subtotal:totals.subtotal,
        p_tax:totals.tax,
        p_total:totals.total,
@@ -1421,6 +1423,8 @@ async function completeSale(){
  if(inv.stock<item.qty&&!s.settings.allowNegativeStock)return alert(`Stock insuficiente para ${item.name}`);
  const p=s.products.find(p=>p.id===item.productId);if(item.cost===undefined)item.cost=Number(p?.cost||0);
 }
+ const saleRate=documentCurrency==="USD"?1:Number(latestRateFor(documentCurrency)||0);
+ if(documentCurrency!=="USD"&&saleRate<=0)return alert(`No existe una tasa vigente para ${documentCurrency}. Registra la tasa antes de completar la venta.`);
  return localAtomic("Venta",()=>{ 
  const t=cartTotals(),number=nextConfiguredDoc("sale","V"),date=new Date().toISOString();
  const doc=documentAmountsFromUSD(t,documentCurrency);
