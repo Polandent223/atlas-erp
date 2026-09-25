@@ -688,12 +688,16 @@ function rates(){
 }
 function users(){
  const s=state();
- return `<div class="hero"><div><h2>Usuarios</h2><p>Accesos, PIN, rol y sucursal.</p></div><button class="btn btn-primary" data-add="user">+ Nuevo usuario</button></div>
- ${table(["Usuario","Rol","Sucursal","Estado",""],s.users.map(u=>{
-  const r=s.roles.find(r=>r.id===u.roleId),b=s.branches.find(b=>b.id===u.branchId);
-  return [`<strong>${esc(u.name)}</strong><br><small>${esc(u.email)}</small>`,esc(r?.name||""),esc(u.branchId==="all"?"Todas":b?.name||""),
+ return `<div class="hero"><div><h2>Usuarios</h2><p>Accesos, PIN, rol y sucursales.</p></div><button class="btn btn-primary" data-add="user">+ Nuevo usuario</button></div>
+ ${table(["Usuario","Rol","Sucursales","Estado",""],s.users.map(u=>{
+  const r=s.roles.find(r=>r.id===u.roleId);
+  const allBranches=Array.isArray(r?.permissions)&&r.permissions.includes("branches.all");
+  const branchIds=Array.isArray(u.branchIds)&&u.branchIds.length?u.branchIds:(Array.isArray(s.branchAccess?.[u.id])?s.branchAccess[u.id]:[u.branchId].filter(id=>id&&id!=="all"));
+  const branchLabel=allBranches?"Todas":branchIds.map(id=>s.branches.find(b=>b.id===id)?.name).filter(Boolean).join(", ")||"Sin sucursal";
+  const legacyStatusButton=isSupabaseConfigured()?"":` <button class="btn ${(u.status||"Activo")==="Inactivo"?"btn-soft":"btn-danger"}" data-delete="user:${u.id}">${(u.status||"Activo")==="Inactivo"?"Reactivar":"Desactivar"}</button>`;
+  return [`<strong>${esc(u.name)}</strong><br><small>${esc(u.email)}</small>`,esc(r?.name||""),esc(branchLabel),
    `<span class="badge ${(u.status||"Activo")==="Activo"?"ok":"warn"}">${esc(u.status||"Activo")}</span>`,
-   `<button class="btn btn-soft" data-edit-user-access="${u.id}">Acceso</button> <button class="btn ${(u.status||"Activo")==="Inactivo"?"btn-soft":"btn-danger"}" data-delete="user:${u.id}">${(u.status||"Activo")==="Inactivo"?"Reactivar":"Desactivar"}</button>`];
+   `<button class="btn btn-soft" data-edit-user-access="${u.id}">Acceso</button>${legacyStatusButton}`];
  }))}`;
 }
 function roles(){
