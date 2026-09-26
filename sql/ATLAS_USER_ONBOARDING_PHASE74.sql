@@ -28,8 +28,14 @@ begin
  if not exists(select 1 from auth.users where id=p_user_id) then
    raise exception 'El usuario no existe en Supabase Authentication';
  end if;
+ if p_user_id=auth.uid() then
+   raise exception 'Usa la edición de acceso para modificar tu propio usuario';
+ end if;
  if exists(select 1 from public.profiles where id=p_user_id and company_id<>cid) then
    raise exception 'El usuario ya pertenece a otra empresa';
+ end if;
+ if exists(select 1 from public.profiles where id=p_user_id and company_id=cid) then
+   raise exception 'El usuario ya está vinculado a esta empresa; usa la edición de acceso';
  end if;
  if not exists(select 1 from public.roles where id=p_role_id and company_id=cid) then
    raise exception 'Rol inválido';
