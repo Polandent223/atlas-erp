@@ -1328,7 +1328,19 @@ function openAdd(kind){
    s.exchangeRates.push({id:DB.id("fx"),date:f.get("date"),currency:f.get("currency"),rate,source:String(f.get("source")||"Manual").trim()});DB.log(`Tasa actualizada: ${f.get("currency")}`);
  });
  if(kind==="user"){
-  if(isSupabaseConfigured())return modal("Nuevo usuario",`<div class="notice"><strong>Alta segura en Supabase</strong><br>ATLAS no crea contraseñas ni usuarios de Supabase Auth desde el navegador. En la instalación actual, crear una cuenta en Supabase Authentication <strong>no crea automáticamente</strong> su perfil de ATLAS. El alta debe vincular también ese UUID de Auth con <code>public.profiles</code> dentro de la empresa antes de que el usuario pueda aparecer aquí y recibir rol/sucursales.<br><br>No introduzcas ninguna clave <code>service_role</code> en esta pantalla.</div>`,()=>{});
+  if(isSupabaseConfigured()){
+   const roleOptions=s.roles.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("");
+   const branchChecks=DB.visibleBranches().filter(b=>(b.status||"Activo")!=="Inactivo").map(b=>`<label class="perm-item"><input type="checkbox" name="branch" value="${esc(b.id)}"> <span>${esc(b.name)}</span></label>`).join("");
+   return modal("Vincular usuario de Supabase",`<div class="notice"><strong>Alta segura</strong><br>Crea primero la cuenta en Supabase Authentication y copia su UUID. ATLAS la vinculará a esta empresa sin pedir ni exponer contraseñas o claves <code>service_role</code>.</div>${field("UUID de Auth","authUserId","")}${field("Nombre completo","name","")}<div class="field"><label>Rol</label><select name="roleId" required>${roleOptions}</select></div><div class="notice">Selecciona las sucursales permitidas. Si el rol tiene permiso para todas las sucursales, no es necesario marcar ninguna.</div><div class="permission-grid">${branchChecks}</div><div class="field"><label><input type="checkbox" name="active" checked> Usuario activo</label></div>`,async fd=>{
+    const userId=requiredText(fd.get("authUserId"),"UUID de Auth"),name=requiredText(fd.get("name"),"Nombre completo"),roleId=requireSelection(fd.get("roleId"),"un rol");
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId))throw new Error("El UUID de Auth no tiene un formato válido.");
+    const role=s.roles.find(r=>String(r.id)===String(roleId));if(!role)throw new Error("Rol inválido.");
+    const branchIds=[...new Set(fd.getAll("branch").map(String).filter(Boolean))],allBranches=Array.isArray(role.permissions)&&role.permissions.includes("branches.all");
+    if(!allBranches&&!branchIds.length)throw new Error("Selecciona al menos una sucursal.");
+    await RemoteRepo.rpc("atlas_link_auth_user",{p_user_id:userId,p_full_name:name,p_role_id:roleId,p_branch_ids:allBranches?[]:branchIds,p_active:fd.get("active")==="on"});
+    await refreshCore();
+   });
+  }
   return modal("Nuevo usuario",`${field("Nombre","name","")}${field("Correo","email","")}${field("PIN","pin","1234")}<div class="field"><label>Rol</label><select name="roleId">${s.roles.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join("")}</select></div><div class="field"><label>Sucursal</label><select name="branchId"><option value="all">Todas</option>${DB.visibleBranches().filter(b=>(b.status||"Activo")!=="Inactivo").map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join("")}</select></div>`,f=>{
    const name=requiredText(f.get("name"),"Nombre"),email=requiredText(f.get("email"),"Correo");uniqueValue(s.users,"email",email,"Correo");
    s.users.push({id:DB.id("u"),name,email,pin:requiredText(f.get("pin"),"PIN"),roleId:f.get("roleId"),branchId:f.get("branchId"),status:"Activo"});DB.log(`Usuario creado: ${name}`);
