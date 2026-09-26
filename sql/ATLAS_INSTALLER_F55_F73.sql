@@ -32,7 +32,7 @@ begin
 end $$;
 
 -- ============================================================
--- BLOQUE 1/14: sql/ATLAS_TRANSACTIONAL_ACCOUNTING_PHASE55.sql
+-- BLOQUE 1/15: sql/ATLAS_TRANSACTIONAL_ACCOUNTING_PHASE55.sql
 -- ============================================================
 -- ATLAS Fase 55 — Integridad transaccional + contabilidad automática
 -- Ejecutar DESPUÉS de Fase 45. Es idempotente.
@@ -257,7 +257,7 @@ revoke insert,update,delete on public.journal_entries,public.journal_lines from 
 grant select on public.journal_entries,public.journal_lines to authenticated;
 
 -- ============================================================
--- BLOQUE 2/14: sql/ATLAS_MULTICURRENCY_CONTRACT_PHASE56.sql
+-- BLOQUE 2/15: sql/ATLAS_MULTICURRENCY_CONTRACT_PHASE56.sql
 -- ============================================================
 -- ATLAS Fase 56 — Contrato multi-moneda seguro
 -- Complementa F55. No reemplaza importes contables base; evita mezclar importes USD con saldos de caja en otra moneda.
@@ -310,7 +310,7 @@ revoke all on function public.atlas_currency_healthcheck() from public;
 grant execute on function public.atlas_currency_healthcheck() to authenticated;
 
 -- ============================================================
--- BLOQUE 3/14: sql/ATLAS_OPERATIONS_HARDENING_PHASE57.sql
+-- BLOQUE 3/15: sql/ATLAS_OPERATIONS_HARDENING_PHASE57.sql
 -- ============================================================
 -- ATLAS Fase 57 — Operaciones remotas endurecidas
 -- Compatible con esquema de producción F32/F44. Reemplaza RPC legacy de F13 que usaba columnas antiguas.
@@ -390,7 +390,7 @@ revoke all on function public.atlas_create_expense(uuid,text,text,numeric,text) 
 grant execute on function public.atlas_create_expense(uuid,text,text,numeric,text) to authenticated;
 
 -- ============================================================
--- BLOQUE 4/14: sql/ATLAS_RETURNS_PHASE58.sql
+-- BLOQUE 4/15: sql/ATLAS_RETURNS_PHASE58.sql
 -- ============================================================
 -- ATLAS Fase 58 / corrección F73 — Devolución de venta segura
 -- Reemplaza la implementación legacy incompatible con sale_returns F44.
@@ -466,7 +466,7 @@ revoke all on function public.atlas_return_sale(uuid,uuid,numeric) from public;
 grant execute on function public.atlas_return_sale(uuid,uuid,numeric) to authenticated;
 
 -- ============================================================
--- BLOQUE 5/14: sql/ATLAS_PURCHASE_RETURNS_PHASE59.sql
+-- BLOQUE 5/15: sql/ATLAS_PURCHASE_RETURNS_PHASE59.sql
 -- ============================================================
 -- ATLAS Fase 59 / corrección F73 — Devolución de compra segura
 -- Devolución parcial por producto: inventario + CxP/crédito proveedor + reverso contable + auditoría.
@@ -538,7 +538,7 @@ revoke all on function public.atlas_return_purchase(uuid,uuid,numeric) from publ
 grant execute on function public.atlas_return_purchase(uuid,uuid,numeric) to authenticated;
 
 -- ============================================================
--- BLOQUE 6/14: sql/ATLAS_CANCELLATIONS_PHASE60.sql
+-- BLOQUE 6/15: sql/ATLAS_CANCELLATIONS_PHASE60.sql
 -- ============================================================
 -- ATLAS Fase 60 / corrección F67 — Anulaciones atómicas de ventas y compras
 -- Requiere F55. Evita doble reverso y mantiene inventario, caja, CxC/CxP, contabilidad y auditoría coherentes.
@@ -652,7 +652,7 @@ revoke all on function public.atlas_cancel_purchase(uuid,text) from public;
 grant execute on function public.atlas_cancel_purchase(uuid,text) to authenticated;
 
 -- ============================================================
--- BLOQUE 7/14: sql/ATLAS_MULTICURRENCY_RPCS_PHASE61.sql
+-- BLOQUE 7/15: sql/ATLAS_MULTICURRENCY_RPCS_PHASE61.sql
 -- ============================================================
 -- ATLAS Fase 61 — FX aplicado dentro de RPC críticos
 -- Contrato: todos los importes p_* son base USD. La tasa representa unidades de moneda documental por 1 USD.
@@ -835,7 +835,7 @@ grant execute on function public.atlas_collect_receivable(uuid,numeric,uuid) to 
 grant execute on function public.atlas_pay_payable(uuid,numeric,uuid) to authenticated;
 
 -- ============================================================
--- BLOQUE 8/14: sql/ATLAS_MASTER_DATA_PHASE62.sql
+-- BLOQUE 8/15: sql/ATLAS_MASTER_DATA_PHASE62.sql
 -- ============================================================
 -- ATLAS Fase 62 / corrección F74 — Maestros remotos coherentes con la UI
 -- Añade los campos que la interfaz ya maneja y centraliza altas/ediciones/estado en RPCs seguros.
@@ -958,7 +958,7 @@ grant execute on function public.atlas_update_master(text,uuid,jsonb) to authent
 grant execute on function public.atlas_set_master_active(text,uuid,boolean) to authenticated;
 
 -- ============================================================
--- BLOQUE 9/14: sql/ATLAS_ADMIN_OPERATIONS_PHASE64.sql
+-- BLOQUE 9/15: sql/ATLAS_ADMIN_OPERATIONS_PHASE64.sql
 -- ============================================================
 -- ATLAS Fase 64 / corrección F70 — Operaciones administrativas remotas
 -- Cierra fugas de estado local: ajuste de inventario y alta de cuenta financiera.
@@ -1046,7 +1046,7 @@ grant execute on function public.atlas_adjust_inventory(uuid,uuid,numeric,text) 
 grant execute on function public.atlas_create_cash_account(text,text,uuid) to authenticated;
 
 -- ============================================================
--- BLOQUE 10/14: sql/ATLAS_CONFIGURATION_PHASE65.sql
+-- BLOQUE 10/15: sql/ATLAS_CONFIGURATION_PHASE65.sql
 -- ============================================================
 -- ATLAS Fase 65 / endurecimiento F74 — Configuración operativa remota
 -- Sucursales, métodos de pago y tasas dejan de depender del almacenamiento local.
@@ -1142,7 +1142,7 @@ grant execute on function public.atlas_set_payment_method_active(uuid,boolean) t
 grant execute on function public.atlas_create_exchange_rate(text,numeric,text,timestamptz) to authenticated;
 
 -- ============================================================
--- BLOQUE 11/14: sql/ATLAS_ACCESS_CONTROL_PHASE66.sql
+-- BLOQUE 11/15: sql/ATLAS_ACCESS_CONTROL_PHASE66.sql
 -- ============================================================
 -- ATLAS Fase 66 / endurecimiento F71 — Usuarios, roles, permisos y configuración remota
 -- No crea usuarios de auth directamente: eso requiere un flujo administrativo seguro.
@@ -1307,7 +1307,7 @@ grant execute on function public.atlas_update_company(text,text,text,text,text,t
 grant execute on function public.atlas_update_branch(uuid,text,text,boolean) to authenticated;
 
 -- ============================================================
--- BLOQUE 12/14: sql/ATLAS_CASH_CONTROL_PHASE68.sql
+-- BLOQUE 12/15: sql/ATLAS_CASH_CONTROL_PHASE68.sql
 -- ============================================================
 -- ATLAS Fase 68 / corrección F72 — Caja, conciliación y aplicación de créditos
 -- Operaciones monetarias remotas, atómicas y auditables.
@@ -1521,7 +1521,7 @@ grant execute on function public.atlas_apply_customer_credit(uuid,uuid,numeric) 
 grant execute on function public.atlas_apply_supplier_credit(uuid,uuid,numeric) to authenticated;
 
 -- ============================================================
--- BLOQUE 13/14: sql/ATLAS_FX_CASH_HARDENING_PHASE69.sql
+-- BLOQUE 13/15: sql/ATLAS_FX_CASH_HARDENING_PHASE69.sql
 -- ============================================================
 -- ATLAS Fase 69 / corrección F73 — Endurecimiento FX de caja y gastos multimoneda
 -- Contrato monetario: rate = unidades de la moneda de la cuenta por 1 USD.
@@ -1625,7 +1625,7 @@ revoke all on function public.atlas_cash_transfer(uuid,uuid,numeric,numeric,nume
 grant execute on function public.atlas_cash_transfer(uuid,uuid,numeric,numeric,numeric,numeric,numeric,text,text) to authenticated;
 
 -- ============================================================
--- BLOQUE 14/14: sql/ATLAS_FINANCIAL_INTEGRITY_PHASE70.sql
+-- BLOQUE 14/15: sql/ATLAS_FINANCIAL_INTEGRITY_PHASE70.sql
 -- ============================================================
 -- ATLAS Fase 70 — Diagnóstico financiero integral
 -- Valida invariantes críticas sin modificar datos. Útil antes de liberar una migración a producción.
@@ -1724,6 +1724,81 @@ revoke all on function public.atlas_financial_integrity_check() from public;
 grant execute on function public.atlas_financial_integrity_check() to authenticated;
 
 -- ============================================================
+-- BLOQUE 15/15: sql/ATLAS_USER_ONBOARDING_PHASE74.sql
+-- ============================================================
+-- ATLAS Fase 74 — Alta segura de perfiles para usuarios Auth existentes
+-- Esta RPC NO crea contraseñas ni usuarios en Supabase Auth.
+-- El usuario debe existir primero en auth.users. El administrador de ATLAS
+-- únicamente lo vincula a su empresa, rol y sucursales sin exponer service_role.
+
+create or replace function public.atlas_link_auth_user(
+ p_user_id uuid,
+ p_full_name text,
+ p_role_id uuid,
+ p_branch_ids uuid[],
+ p_active boolean default true
+) returns jsonb
+language plpgsql
+security definer
+set search_path=public
+as $$
+declare
+ cid uuid:=public.current_company_id();
+ b uuid;
+ all_branches boolean:=false;
+begin
+ if cid is null then raise exception 'Sesión sin empresa'; end if;
+ if not (public.has_permission('settings.manage') or public.has_permission('*')) then
+   raise exception 'Permiso insuficiente';
+ end if;
+ if p_user_id is null then raise exception 'UUID de Auth requerido'; end if;
+ if nullif(btrim(coalesce(p_full_name,'')),'') is null then raise exception 'Nombre requerido'; end if;
+ if not exists(select 1 from auth.users where id=p_user_id) then
+   raise exception 'El usuario no existe en Supabase Authentication';
+ end if;
+ if exists(select 1 from public.profiles where id=p_user_id and company_id<>cid) then
+   raise exception 'El usuario ya pertenece a otra empresa';
+ end if;
+ if not exists(select 1 from public.roles where id=p_role_id and company_id=cid) then
+   raise exception 'Rol inválido';
+ end if;
+ select permissions ? 'branches.all' into all_branches
+ from public.roles where id=p_role_id and company_id=cid;
+ foreach b in array coalesce(p_branch_ids,array[]::uuid[]) loop
+   if not exists(select 1 from public.branches where id=b and company_id=cid and active=true) then
+     raise exception 'Sucursal inválida';
+   end if;
+ end loop;
+ if not all_branches and cardinality(coalesce(p_branch_ids,array[]::uuid[]))=0 then
+   raise exception 'Selecciona al menos una sucursal';
+ end if;
+
+ insert into public.profiles(id,company_id,full_name,status)
+ values(p_user_id,cid,btrim(p_full_name),case when p_active then 'ACTIVE' else 'INACTIVE' end)
+ on conflict(id) do update set
+   full_name=excluded.full_name,
+   status=excluded.status
+ where public.profiles.company_id=cid;
+
+ insert into public.user_roles(user_id,role_id) values(p_user_id,p_role_id)
+ on conflict(user_id) do update set role_id=excluded.role_id;
+ delete from public.user_branches where user_id=p_user_id;
+ if not all_branches then
+   insert into public.user_branches(user_id,branch_id)
+   select p_user_id,x from unnest(coalesce(p_branch_ids,array[]::uuid[])) x;
+ end if;
+
+ insert into public.audit_log(company_id,user_id,action,entity,entity_id,detail)
+ values(cid,auth.uid(),'CREATE','USER_PROFILE',p_user_id::text,
+   jsonb_build_object('full_name',btrim(p_full_name),'role_id',p_role_id,
+     'branch_ids',coalesce(p_branch_ids,array[]::uuid[]),'active',p_active));
+ return jsonb_build_object('id',p_user_id,'active',p_active);
+end $$;
+
+revoke all on function public.atlas_link_auth_user(uuid,text,uuid,uuid[],boolean) from public;
+grant execute on function public.atlas_link_auth_user(uuid,text,uuid,uuid[],boolean) to authenticated;
+
+-- ============================================================
 -- Verificación estructural final. Si algo falta, toda la transacción revierte.
 -- ============================================================
 do $$
@@ -1732,6 +1807,7 @@ begin
   if to_regclass('public.cash_transfers') is null then missing:=array_append(missing,'cash_transfers'); end if;
   if to_regprocedure('public.atlas_post_journal(uuid,text,text,jsonb)') is null then missing:=array_append(missing,'atlas_post_journal'); end if;
   if to_regprocedure('public.atlas_fx_amount(numeric,text,text,numeric)') is null then missing:=array_append(missing,'atlas_fx_amount'); end if;
+  if to_regprocedure('public.atlas_link_auth_user(uuid,text,uuid,uuid[],boolean)') is null then missing:=array_append(missing,'atlas_link_auth_user'); end if;
   if to_regprocedure('public.atlas_create_sale(uuid,uuid,text,numeric,numeric,numeric,numeric,numeric,uuid,jsonb,text)') is null then missing:=array_append(missing,'atlas_create_sale'); end if;
   if to_regprocedure('public.atlas_create_purchase(uuid,uuid,text,numeric,numeric,numeric,numeric,numeric,uuid,jsonb,text)') is null then missing:=array_append(missing,'atlas_create_purchase'); end if;
   if to_regprocedure('public.atlas_return_sale(uuid,uuid,numeric)') is null then missing:=array_append(missing,'atlas_return_sale'); end if;
