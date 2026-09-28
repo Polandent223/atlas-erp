@@ -148,6 +148,36 @@ function openRoleEdit(id){
   });
 }
 
+
+function openAuthUserLink(){
+  const s=DB.getState();
+  if(!s.roles?.length) return alert('Primero debes crear al menos un rol.');
+  const activeBranches=(s.branches||[]).filter(b=>(b.status||'Activo')!=='Inactivo');
+  const roleOptions=s.roles.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
+  const branchChecks=activeBranches.map(b=>`<label class="perm-item"><input type="checkbox" name="branch" value="${esc(b.id)}"> <span>${esc(b.name)}</span></label>`).join('');
+  modal('Vincular usuario de Supabase',`
+    <div class="notice">Primero crea el usuario en Supabase Authentication. Copia aquí su UUID; ATLAS sólo vinculará ese usuario existente con esta empresa, su rol y sucursales. Nunca pegues una service_role.</div>
+    <div class="field"><label>UUID de Auth</label><input name="userId" required placeholder="00000000-0000-0000-0000-000000000000"></div>
+    ${field('Nombre completo','fullName','')}
+    <div class="field"><label>Rol</label><select name="roleId" required>${roleOptions}</select></div>
+    <div class="permission-grid">${branchChecks}</div>
+    <div class="field"><label><input type="checkbox" name="active" checked> Usuario activo</label></div>
+  `,async fd=>{
+    const userId=String(fd.get('userId')||'').trim();
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) throw new Error('UUID de Auth inválido.');
+    const fullName=String(fd.get('fullName')||'').trim();
+    if(!fullName) throw new Error('El nombre es obligatorio.');
+    const roleId=String(fd.get('roleId')||'');
+    const role=s.roles.find(r=>String(r.id)===roleId);
+    if(!role) throw new Error('Selecciona un rol válido.');
+    const branchIds=[...new Set(fd.getAll('branch').map(String).filter(Boolean))];
+    const allBranches=Array.isArray(role.permissions)&&role.permissions.includes('branches.all');
+    if(!allBranches&&!branchIds.length) throw new Error('Selecciona al menos una sucursal.');
+    await RemoteRepo.rpc('atlas_link_auth_user',{p_user_id:userId,p_full_name:fullName,p_role_id:roleId,p_branch_ids:allBranches?[]:branchIds,p_active:fd.get('active')==='on'});
+    await refreshCore();
+  });
+}
+
 function openUserAccessEdit(id){
   const s=DB.getState(), user=(s.users||[]).find(x=>String(x.id)===String(id));
   if(!user) return alert('Usuario no encontrado.');
@@ -215,6 +245,11 @@ document.addEventListener('click',event=>{
   if(role){
     event.preventDefault();event.stopImmediatePropagation();
     return openRoleEdit(role.dataset.editRole);
+  }
+  const linkUser=event.target.closest?.('[data-link-auth-user]');
+  if(linkUser){
+    event.preventDefault();event.stopImmediatePropagation();
+    return openAuthUserLink();
   }
   const userAccess=event.target.closest?.('[data-edit-user-access]');
   if(userAccess){
