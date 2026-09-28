@@ -1040,6 +1040,9 @@ function bind(){
      const profile=await getRemoteProfile();
      if(!profile)throw new Error("Tu usuario no tiene perfil de ATLAS.");
      DB.setRemoteSession(profile);
+     // Fase 59: prepara de forma idempotente la empresa antes de sincronizar datos.
+     const bootstrap=await RemoteRepo.rpc("atlas_bootstrap_company",{});
+     if(!bootstrap?.ok)throw new Error("No se pudo preparar la empresa para operar.");
      DB.setSyncStatus("syncing");
      try{
        await pullCoreWorkspace(state());
