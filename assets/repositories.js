@@ -88,6 +88,8 @@ export const RemoteRepo = {
   financialSummary(){ return this.rpc("atlas_financial_summary",{}); },
 
   seedChartOfAccounts(){ return this.rpc("atlas_seed_chart_of_accounts",{}); },
+  bootstrapCompany(){ return this.rpc("atlas_bootstrap_company",{}); },
+  operationalReadiness(){ return this.rpc("atlas_operational_readiness",{}); },
 
   createSale(args){ return this.rpc("atlas_create_sale",args); },
   createPurchase(args){ return this.rpc("atlas_create_purchase",args); },
