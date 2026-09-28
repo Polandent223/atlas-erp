@@ -1759,7 +1759,7 @@ begin
  if p_user_id=auth.uid() then
    raise exception 'Usa la edición de acceso para modificar tu propio usuario';
  end if;
- if exists(select 1 from public.profiles where id=p_user_id and company_id<>cid) then
+ if exists(select 1 from public.profiles where id=p_user_id and company_id is distinct from cid) then
    raise exception 'El usuario ya pertenece a otra empresa';
  end if;
  if exists(select 1 from public.profiles where id=p_user_id and company_id=cid) then
@@ -1780,11 +1780,7 @@ begin
  end if;
 
  insert into public.profiles(id,company_id,full_name,status)
- values(p_user_id,cid,btrim(p_full_name),case when p_active then 'ACTIVE' else 'INACTIVE' end)
- on conflict(id) do update set
-   full_name=excluded.full_name,
-   status=excluded.status
- where public.profiles.company_id=cid;
+ values(p_user_id,cid,btrim(p_full_name),case when p_active then 'ACTIVE' else 'INACTIVE' end);
 
  insert into public.user_roles(user_id,role_id) values(p_user_id,p_role_id)
  on conflict(user_id) do update set role_id=excluded.role_id;
