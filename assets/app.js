@@ -1041,8 +1041,13 @@ function bind(){
      if(!profile)throw new Error("Tu usuario no tiene perfil de ATLAS.");
      DB.setRemoteSession(profile);
      // Fase 59: prepara de forma idempotente la empresa antes de sincronizar datos.
-     const bootstrap=await RemoteRepo.rpc("atlas_bootstrap_company",{});
+     const bootstrap=await RemoteRepo.bootstrapCompany();
      if(!bootstrap?.ok)throw new Error("No se pudo preparar la empresa para operar.");
+     const readiness=bootstrap?.readiness || await RemoteRepo.operationalReadiness();
+     if(!readiness?.ready){
+       const missing=Array.isArray(readiness?.missing)?readiness.missing.join(", "):"configuración requerida";
+       throw new Error("La empresa todavía no está lista para operar: "+missing);
+     }
      DB.setSyncStatus("syncing");
      try{
        await pullCoreWorkspace(state());
