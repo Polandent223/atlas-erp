@@ -688,7 +688,7 @@ function rates(){
 }
 function users(){
  const s=state();
- return `<div class="hero"><div><h2>Usuarios</h2><p>Accesos, PIN, rol y sucursales.</p></div><button class="btn btn-primary" data-add="user">+ Nuevo usuario</button></div>
+ return `<div class="hero"><div><h2>Usuarios</h2><p>Accesos, PIN, rol y sucursales.</p></div>${isSupabaseConfigured()?`<button class="btn btn-primary" data-link-auth-user>+ Vincular usuario Auth</button>`:`<button class="btn btn-primary" data-add="user">+ Nuevo usuario</button>`}</div>
  ${table(["Usuario","Rol","Sucursales","Estado",""],s.users.map(u=>{
   const r=s.roles.find(r=>r.id===u.roleId);
   const allBranches=Array.isArray(r?.permissions)&&r.permissions.includes("branches.all");
