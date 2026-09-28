@@ -27,4 +27,3 @@ begin
 end $$;
 revoke all on function public.atlas_operational_readiness() from public;
 grant execute on function public.atlas_operational_readiness() to authenticated;
-$$;
