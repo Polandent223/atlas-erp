@@ -27,7 +27,7 @@ export async function pullTransactions(localState){
  return {sales:localState.sales.length,purchases:localState.purchases.length,receivables:localState.receivables.length,payables:localState.payables.length,cashMovements:localState.cashMovements.length,expenses:localState.expenses.length};
 }
 export async function pullAccounting(localState){
- const [accounts,entries,lines]=await Promise.all([RemoteRepo.list("accounting_accounts",{order:{column:"code",ascending:true}}),RemoteRepo.list("journal_entries",{order:{column:"created_at",ascending:false}}),RemoteRepo.list("journal_lines")]);
+ const [accounts,entries,lines]=await Promise.all([RemoteRepo.list("accountingAccounts",{order:{column:"code",ascending:true}}),RemoteRepo.list("journalEntries",{order:{column:"created_at",ascending:false}}),RemoteRepo.list("journalLines")]);
  localState.chartOfAccounts=accounts.map(r=>({id:r.id,code:r.code,name:r.name,type:r.type||"Activo",active:r.active!==false})); const byCode=new Map(localState.chartOfAccounts.map(a=>[a.code,a.id])),byEntry={};
  for(const l of lines)(byEntry[l.entry_id]||=[]).push({accountId:byCode.get(l.account_code)||null,accountCode:l.account_code,debit:Number(l.debit||0),credit:Number(l.credit||0),description:l.description||""});
  localState.journalEntries=entries.map(e=>({id:e.id,date:e.created_at,reference:e.reference||"",description:e.description||"",status:"Contabilizado",lines:byEntry[e.id]||[]})); return {accounts:accounts.length,entries:entries.length,lines:lines.length};
