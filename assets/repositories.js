@@ -16,6 +16,8 @@ const TABLES = {
   cashMovements:"cash_movements",
   expenses:"expenses",
   accountingAccounts:"accounting_accounts",
+  journalEntries:"journal_entries",
+  journalLines:"journal_lines",
   exchangeRates:"exchange_rates",
   quotations:"quotations",
   stockTransfers:"stock_transfers",
