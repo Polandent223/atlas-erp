@@ -276,9 +276,11 @@ export const DB = {
     if(profile.role?.id){ const remoteRole={id:profile.role.id,name:profile.role.name||"Usuario",description:"Rol sincronizado desde Supabase",permissions:Array.isArray(profile.role.permissions)?profile.role.permissions:[]}; const pos=state.roles.findIndex(r=>r.id===remoteRole.id); if(pos>=0)state.roles[pos]=remoteRole;else state.roles.push(remoteRole); }
     let user=state.users.find(u=>u.id===localId);
     const branchIds=Array.isArray(profile.branch_ids)?profile.branch_ids:[profile.branch_id].filter(Boolean);
+    const allBranches=(profile.role?.permissions||[]).some(p=>p==="*"||p==="branches.all");
     if(!user){ user={id:localId,name:profile.full_name||profile.email,email:profile.email,pin:"",roleId:profile.role_id||profile.role?.id||null,branchId:profile.role?.permissions?.includes("*")?"all":(branchIds[0]||"all"),status:profile.status==="ACTIVE"?"Activo":(profile.status||"Activo")}; state.users.push(user); }
     else{ user.name=profile.full_name||user.name; user.email=profile.email||user.email; user.roleId=profile.role_id||profile.role?.id||user.roleId; user.branchId=profile.role?.permissions?.includes("*")?"all":(branchIds[0]||user.branchId); user.status=profile.status==="ACTIVE"?"Activo":(profile.status||user.status); }
-    state.branchAccess[localId]=profile.role?.permissions?.includes("*")?["*"]:branchIds;
+    user.branchId=allBranches?"all":(branchIds[0]||null);
+    state.branchAccess[localId]=allBranches?["*"]:branchIds;
     state.session={loggedIn:true,userId:localId}; state.sync.status="connected"; this.save(); return user;
   },
   setSyncStatus(status,error=null){

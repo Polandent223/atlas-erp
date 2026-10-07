@@ -13,6 +13,37 @@ import { CONFIG, isSupabaseConfigured } from "./config.js";
 import { remoteLogin, remoteLogout, getRemoteProfile, healthCheck } from "./supabase.js";
 import { pullCoreWorkspace, pullTransactions, pullAccounting } from "./sync.js";
 import { RemoteRepo } from "./repositories.js";
+import { loadUserAccess, saveUserAccess, allBranches } from "./user-access.js";
+
+let remoteAccess=null, remoteAccessError="", remoteAccessLoading=false;
+function managesRemoteAccess(){return (DB.role(DB.currentUser())?.permissions||[]).some(p=>p==="*"||p==="settings.manage");}
+async function refreshUserAccess(){
+ remoteAccessLoading=true;remoteAccessError="";
+ const userId=state().session.userId;
+ try{
+  const snapshot=await loadUserAccess();
+  if(!state().session.loggedIn||state().session.userId!==userId)return;
+  remoteAccess=snapshot;
+ }catch(err){remoteAccess=null;remoteAccessError=err.message||"No se pudieron cargar los usuarios";throw err;}
+ finally{remoteAccessLoading=false;}
+}
+async function openRemoteUserAccess(userId=null){
+ try{
+  if(!managesRemoteAccess())throw new Error("No tienes permiso para administrar usuarios.");
+  await refreshUserAccess();
+  const snapshot=remoteAccess,user=snapshot.users.find(u=>u.id===userId);
+  if(userId&&!user)throw new Error("Usuario no encontrado.");
+  const roles=snapshot.roles,branches=snapshot.branches.filter(b=>b.active!==false);
+  modal(user?"Editar acceso":"Vincular cuenta",`${user?`<p>${esc(user.name)} · ${esc(user.email)}</p>`:`<p>La cuenta debe existir en Supabase Authentication. Copia su UUID para asignarle acceso a esta empresa.</p>${field("UUID de Authentication","userId","","text","required")}${field("Nombre","name","","text","required")}`}<div class="field"><label>Rol</label><select name="roleId" required>${roles.map(r=>`<option value="${esc(r.id)}" ${r.id===user?.role_id?"selected":""}>${esc(r.name)}</option>`).join("")}</select></div><p id="allBranchesHint" hidden>Este rol permite todas las sucursales.</p><fieldset id="accessBranches"><legend>Sucursales permitidas</legend>${branches.map(b=>`<label class="check"><input type="checkbox" name="branchIds" value="${esc(b.id)}" ${(user?.branch_ids||[]).includes(b.id)?"checked":""}> ${esc(b.name)}</label>`).join("")}</fieldset><label class="check"><input type="checkbox" name="active" ${!user||user.status==="ACTIVE"?"checked":""} ${userId===state().session.userId?"disabled":""}> Activo</label>`,async f=>{
+   await saveUserAccess(snapshot,{link:!user,userId:user?.id||String(f.get("userId")||"").trim(),name:f.get("name"),roleId:f.get("roleId"),branchIds:f.getAll("branchIds"),active:userId===state().session.userId||f.get("active")==="on"});
+   try{await refreshUserAccess();if(userId===state().session.userId)DB.setRemoteSession(await getRemoteProfile());}
+   catch(err){remoteAccess=null;remoteAccessError="Acceso guardado. No se pudo actualizar la lista: "+err.message;}
+  });
+  const select=document.querySelector('#modalForm [name="roleId"]');
+  const update=()=>{const all=allBranches(roles.find(r=>r.id===select.value));document.getElementById("accessBranches").disabled=all;document.getElementById("allBranchesHint").hidden=!all;};
+  select.onchange=update;update();
+ }catch(err){alert(err.message);render();}
+}
 
 let current="dashboard";
 let cart=[];
@@ -59,6 +90,7 @@ const ADVANCED_PAGES=[
 ];
 
 function moduleAllowed(key){
+ if(isSupabaseConfigured()&&key==="users")return managesRemoteAccess();
  if(key==="controlCenter") return ADVANCED_PAGES.some(([k])=>DB.can(PAGE_PERMISSION[k]||k));
  const permission=PAGE_PERMISSION[key];
  return !permission || DB.can(permission);
@@ -678,6 +710,14 @@ function rates(){
  ${table(["Fecha","Moneda","Tasa VES","Fuente"],s.exchangeRates.slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(r=>[esc(r.date),esc(r.currency),money(r.rate),esc(r.source)]))}`;
 }
 function users(){
+ if(isSupabaseConfigured()){
+  const snapshot=remoteAccess;
+  return `<div class="hero"><div><h2>Usuarios</h2><p>Cuentas, roles y sucursales de esta empresa.</p></div><div class="hero-actions"><button class="btn btn-soft" id="refreshUserAccess">Actualizar</button><button class="btn btn-primary" data-add="user" ${!snapshot||remoteAccessLoading?"disabled":""}>+ Vincular cuenta</button></div></div>${remoteAccessError?`<div class="notice danger">${esc(remoteAccessError)}</div>`:""}${!snapshot?`<div class="card">${remoteAccessLoading?"Cargando usuarios…":"Actualiza para consultar los usuarios de Supabase."}</div>`:table(["Usuario","Rol","Sucursales","Estado",""],snapshot.users.map(u=>{
+   const role=snapshot.roles.find(r=>r.id===u.role_id);
+   const branches=allBranches(role)?"Todas":(u.branch_ids||[]).map(id=>snapshot.branches.find(b=>b.id===id)?.name||"Sucursal no disponible").join(", ")||"Sin sucursal";
+   return [`<strong>${esc(u.name)}</strong><br><small>${esc(u.email||"")}</small>`,esc(role?.name||"Sin rol"),esc(branches),`<span class="badge ${u.status==="ACTIVE"?"ok":"warn"}">${u.status==="ACTIVE"?"Activo":"Inactivo"}</span>`,`<button class="btn btn-soft" data-user-access="${esc(u.id)}">Editar acceso</button>`];
+  }))}`;
+ }
  const s=state();
  return `<div class="hero"><div><h2>Usuarios</h2><p>Accesos, PIN, rol y sucursal.</p></div><button class="btn btn-primary" data-add="user">+ Nuevo usuario</button></div>
  ${table(["Usuario","Rol","Sucursal","Estado",""],s.users.map(u=>{
@@ -1028,7 +1068,7 @@ setInterval(async()=>{
 
 function modal(title,body,onSave){
  const bg=document.createElement("div");bg.className="modal-bg";bg.innerHTML=`<div class="modal"><h3>${title}</h3><form id="modalForm">${body}<div class="modal-actions"><button type="button" class="btn btn-soft" id="cancelModal">Cancelar</button><button class="btn btn-primary">Guardar</button></div></form></div>`;
- document.body.appendChild(bg);document.getElementById("cancelModal").onclick=()=>bg.remove();document.getElementById("modalForm").onsubmit=async e=>{e.preventDefault();try{await onSave(new FormData(e.target));bg.remove();render()}catch(err){alert(err.message||"No se pudo completar la operación")}};
+ document.body.appendChild(bg);document.getElementById("cancelModal").onclick=()=>bg.remove();document.getElementById("modalForm").onsubmit=async e=>{e.preventDefault();const form=e.target;if(form.dataset.saving)return;const data=new FormData(form);form.dataset.saving="true";const buttons=[...form.querySelectorAll("button")];buttons.forEach(b=>b.disabled=true);try{await onSave(data);bg.remove();render()}catch(err){alert(err.message||"No se pudo completar la operación")}finally{delete form.dataset.saving;buttons.forEach(b=>b.disabled=false)}};
 }
 
 function editDocumentSettings(){const s=state(),cfg=s.settings.documentTemplates||{};modal("Formato de documentos",`<div class="field"><label>Texto de pie</label><input name="footerText" value="${esc(cfg.footerText||"Gracias por su preferencia.")}"></div><div class="field"><label>Tamaño de papel</label><select name="paperSize"><option value="A4" ${cfg.paperSize==="A4"?"selected":""}>A4</option><option value="Letter" ${cfg.paperSize==="Letter"?"selected":""}>Carta</option></select></div><label class="check"><input type="checkbox" name="showAddress" ${cfg.showAddress!==false?"checked":""}> Mostrar dirección</label><label class="check"><input type="checkbox" name="showTaxId" ${cfg.showTaxId!==false?"checked":""}> Mostrar RIF / identificación</label><label class="check"><input type="checkbox" name="showFooter" ${cfg.showFooter!==false?"checked":""}> Mostrar pie de documento</label>`,f=>{cfg.footerText=String(f.get("footerText")||"").trim()||"Gracias por su preferencia.";cfg.paperSize=f.get("paperSize")||"A4";cfg.showAddress=f.get("showAddress")==="on";cfg.showTaxId=f.get("showTaxId")==="on";cfg.showFooter=f.get("showFooter")==="on";DB.log("Formato de documentos actualizado","UPDATE","document_settings");DB.save()})}
@@ -1064,9 +1104,11 @@ function bind(){
    }
    render();
  }catch(err){alert("No se pudo iniciar sesión: "+err.message)}};
- const lo=document.getElementById("logout");if(lo)lo.onclick=async()=>{try{if(isSupabaseConfigured())await remoteLogout()}catch{}DB.logout();render()};
+ const lo=document.getElementById("logout");if(lo)lo.onclick=async()=>{try{if(isSupabaseConfigured())await remoteLogout()}catch{}DB.logout();remoteAccess=null;remoteAccessError="";render()};
  const mt=document.getElementById("menuToggle");if(mt)mt.onclick=()=>document.getElementById("sidebar").classList.toggle("open");
- document.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{current=b.dataset.nav;render()});
+ document.querySelectorAll("[data-nav]").forEach(b=>b.onclick=async()=>{current=b.dataset.nav;if(current==="users"&&isSupabaseConfigured()){const pending=refreshUserAccess();render();try{await pending;}catch{}render();}else render();});
+ const rua=document.getElementById("refreshUserAccess");if(rua)rua.onclick=async()=>{const pending=refreshUserAccess();render();try{await pending;}catch{}render();};
+ document.querySelectorAll("[data-user-access]").forEach(b=>b.onclick=()=>openRemoteUserAccess(b.dataset.userAccess));
  const cf=document.getElementById("companyForm");if(cf)cf.onsubmit=e=>{e.preventDefault();const f=new FormData(cf),c=state().company;["name","taxId","phone","email","country","baseCurrency","displayCurrency"].forEach(k=>c[k]=f.get(k));DB.log("Configuración de empresa actualizada");alert("Guardado");render()};
  const rd=document.getElementById("resetDemo");if(rd)rd.onclick=()=>{if(confirm("¿Restablecer toda la demostración?")){DB.reset();cart=[];render()}};
  document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openAdd(b.dataset.add));
@@ -1268,6 +1310,7 @@ function uniqueValue(arr,field,value,label){
 }
 
 function openAdd(kind){
+ if(kind==="user"&&isSupabaseConfigured())return openRemoteUserAccess();
  const s=state();
  if(kind==="branch")return modal("Nueva sucursal",`${field("Nombre","name","")}${field("Ciudad","city","")}`,f=>{
    const name=requiredText(f.get("name"),"Nombre");uniqueValue(s.branches,"name",name,"Sucursal");
@@ -1309,6 +1352,7 @@ function openAdd(kind){
 }
 async function deleteItem(token){
  const [kind,id]=token.split(":"),s=state();
+ if(kind==="user"&&isSupabaseConfigured())return openRemoteUserAccess(id);
  const map={branch:"branches",customer:"customers",supplier:"suppliers",product:"products",user:"users"};
  const key=map[kind];if(!key)return;
  const item=s[key].find(x=>x.id===id);if(!item)return;
