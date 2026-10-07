@@ -18,6 +18,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify ATLAS user access
+        run: |
+          node --check assets/app.js
+          node --check assets/supabase.js
+          node --check assets/user-access.js
+          node tests/user-access-runtime.mjs
+          node tests/runtime52-dashboard.mjs
+          python tests/validate.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

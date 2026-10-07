@@ -57,6 +57,7 @@ export async function getRemoteProfile(){
 
   const {data:profile,error}=await supabase.from("profiles").select("id,company_id,full_name,status").eq("id",user.id).single();
   if(error) throw error;
+  if(profile.status!=="ACTIVE") throw new Error("Tu acceso a ATLAS está inactivo.");
   const [{data:ur,error:urError},{data:ubs,error:ubError},{data:company,error:companyError}]=await Promise.all([
     supabase.from("user_roles").select("role_id").eq("user_id",user.id).maybeSingle(),
     supabase.from("user_branches").select("branch_id").eq("user_id",user.id),
@@ -67,7 +68,8 @@ export async function getRemoteProfile(){
   if(ur?.role_id){ const {data,error:roleError}=await supabase.from("roles").select("id,name,permissions").eq("id",ur.role_id).single(); if(roleError) throw roleError; role=data; }
   const branchIds=(ubs||[]).map(x=>x.branch_id);
   let branches=[];
-  if(branchIds.length){ const {data,error:branchError}=await supabase.from("branches").select("id,name,code,active").in("id",branchIds); if(branchError) throw branchError; branches=data||[]; }
+  const allBranches=(role?.permissions||[]).some(p=>p==="*"||p==="branches.all");
+  if(allBranches||branchIds.length){ let query=supabase.from("branches").select("id,name,code,active").eq("company_id",profile.company_id);if(!allBranches)query=query.in("id",branchIds);const {data,error:branchError}=await query;if(branchError)throw branchError;branches=data||[]; }
   return {...profile,email:user.email,role_id:ur?.role_id||null,role,branch_id:branchIds[0]||"all",branch_ids:branchIds,branches,company};
 }
 
